@@ -1,3 +1,4 @@
+/* eslint-env node */
 'use strict';
 
 const express = require('express');
@@ -52,6 +53,8 @@ const getCallback = (req, res, next) =>
     });
   });
 
+const getClient = (_req, res) => res.sendFile('client.js', { root: '.' });
+
 const notFound = (_req, res) => res.status(statuses('not found')).json(false);
 
 const internalServerError = (err, _req, res, _next) => {
@@ -65,6 +68,7 @@ express()
   .get('/health-check', getHealthCheck)
   .get('/authorize', getAuthorize)
   .get('/callback', getCallback)
+  .get('/client', getClient)
   .use(notFound)
   .use(internalServerError)
   .listen(PORT, () => console.log(`Listening on port ${PORT} ...`));
