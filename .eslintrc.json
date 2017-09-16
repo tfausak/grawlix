@@ -3,14 +3,20 @@
   "extends": "eslint:all",
   "parserOptions": { "ecmaVersion": 6 },
   "rules": {
+    "capitalized-comments": "off",
+    "consistent-return": "off",
     "dot-location": ["error", "property"],
     "indent": ["error", 2],
     "max-params": ["error", 4],
     "no-console": "off",
     "no-process-env": "off",
+    "no-shadow": ["error", { "allow": ["err", "_res", "body"] }],
     "no-unused-vars": ["error", { "argsIgnorePattern": "^_" }],
+    "object-curly-spacing": ["error", "always"],
+    "object-property-newline": "off",
     "one-var": ["error", "never"],
     "padded-blocks": ["error", "never"],
+    "quote-props": ["error", "as-needed"],
     "quotes": ["error", "single"]
   }
 }
