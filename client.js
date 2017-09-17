@@ -2,6 +2,7 @@
 (function grawlix () {
   'use strict';
 
+  const root = 'http://localhost:8080';
   let commentsByDefinition = {};
   const ok = 200;
   const pluralize = (number, word) =>
@@ -76,6 +77,29 @@
         dl.appendChild(dd);
       });
 
+      const form = document.createElement('form');
+      form.method = 'POST';
+      form.action = `${root}/comments`;
+      form.innerHTML = `
+        <input
+          type="hidden"
+          name="token"
+          value="${window.localStorage.token}"
+        />
+        <input type="hidden" name="package" value="${packageName}" />
+        <input type="hidden" name="version" value="${version}" />
+        <input type="hidden" name="module" value="${moduleName}" />
+        <input
+          type="hidden"
+          name="definition"
+          value="${definition.textContent}"
+        />
+        <input type="hidden" name="anchor" value="${definition.id}" />
+        <textarea name="content" placeholder="Hello, world!"></textarea>
+        <input type="submit">
+      `;
+      container.appendChild(form);
+
       const existingContainer = document.querySelector(`[id='${id}']`);
       const parent = definition.parentElement.parentElement;
       if (existingContainer) {
@@ -86,7 +110,6 @@
     });
   };
 
-  const root = 'http://localhost:8080';
   const query = [
     ['package', packageName],
     ['version', version],

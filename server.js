@@ -134,7 +134,7 @@ express()
   .get('/callback', getCallback)
   .get('/client', getClient)
   .get('/comments', getComments)
-  .post('/comments', bodyParser.json(), postComment)
+  .post('/comments', bodyParser.urlencoded(), postComment)
   .use(notFound)
   .use(internalServerError)
   .listen(config.port, () =>
