@@ -10,6 +10,8 @@ const request = require('request');
 const statuses = require('statuses');
 
 const db = knex(require('./knexfile'));
+// eslint-disable-next-line no-console
+db.on('query', (query) => console.log(`${query.sql} -- [${query.bindings}]`));
 
 const getHealthCheck = (_req, res, next) =>
   db.select(db.raw('1'))
@@ -56,7 +58,18 @@ const getCallback = (req, res, next) =>
       }
 
       const { avatar_url: avatar, email, login: username, name } = body;
-      res.json({ avatar, email, name, username });
+      db.transaction((trx) =>
+        trx
+          .insert({ avatar, email, name, token, username })
+          .into('users')
+          .then((rows) => rows.length === 1 ? rows[0] : next(rows))
+          .catch(() =>
+            trx
+              .where({ name })
+              .update({ avatar, email, token, username })
+              .into('users')))
+        .then((id) => res.json(id))
+        .catch((err) => next(err));
     });
   });
 

@@ -18,6 +18,7 @@
     .from(document.querySelectorAll('a.def'))
     .map((element) => ({ id: element.id, name: element.textContent }));
 
+  // eslint-disable-next-line no-console
   definitions.map((definition) => console
     .log(packageName, version, moduleName, definition.name, definition.id));
 }());
