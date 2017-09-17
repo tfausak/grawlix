@@ -37,19 +37,51 @@
       }
     });
 
-    document.querySelectorAll('a.def').forEach((element) => {
-      const definition = element.textContent;
-      const anchor = element.id;
-      const id = `grawlix-${definition}`;
-      const existingButton = document.querySelector(`[id='${id}']`);
-      const button = existingButton || document.createElement('button');
-      button.id = id;
-      button.dataset.anchor = anchor;
-      button.dataset.definition = definition;
-      const comments = commentsByDefinition[definition] || [];
-      button.textContent = pluralize(comments.length, 'comment');
-      if (!existingButton) {
-        element.insertAdjacentElement('afterend', button);
+    document.querySelectorAll('a.def').forEach((definition) => {
+      const container = document.createElement('div');
+      container.className = 'subs comments';
+
+      const id = `grawlix-${definition.textContent}`;
+      container.id = id;
+
+      const comments = commentsByDefinition[definition.textContent] || [];
+
+      const title = document.createElement('h5');
+      title.textContent = pluralize(comments.length, 'comment');
+      container.appendChild(title);
+
+      const dl = document.createElement('dl');
+      container.appendChild(dl);
+
+      comments.forEach((comment) => {
+        const dt = document.createElement('dt');
+        dt.innerHTML = `
+          <img
+            alt=""
+            src="${comment.avatar}"
+            style="height: 2em; vertical-align: middle"
+          />
+          <a
+            href="https://github.com/${comment.username}"
+            title="${comment.name}"
+          >
+            @${comment.username}
+          </a>
+          ${comment.when}
+        `;
+        dl.appendChild(dt);
+
+        const dd = document.createElement('dd');
+        dd.textContent = comment.content;
+        dl.appendChild(dd);
+      });
+
+      const existingContainer = document.querySelector(`[id='${id}']`);
+      const parent = definition.parentElement.parentElement;
+      if (existingContainer) {
+        parent.replaceChild(container, existingContainer);
+      } else {
+        parent.appendChild(container);
       }
     });
   };
