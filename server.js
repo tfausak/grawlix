@@ -1,27 +1,34 @@
 /* eslint-env node */
 'use strict';
 
+const config = require('./config');
 const express = require('express');
+const grawlix = require('./package.json');
+const knex = require('knex');
 const morgan = require('morgan');
 const request = require('request');
 const statuses = require('statuses');
 
-const CLIENT_ID = process.env.CLIENT_ID || 'd5c2fc36b20bd8be47c9';
-const CLIENT_SECRET = process.env.CLIENT_SECRET || '';
-const PORT = process.env.PORT || '8080';
+const db = knex(require('./knexfile'));
 
-const getHealthCheck = (_req, res) => res.json(true);
+const getHealthCheck = (_req, res, next) =>
+  db.select(db.raw('1'))
+    .then(() => res.json(true))
+    .catch((err) => next(err));
 
-const getAuthorize = (_req, res) => res
-  .redirect(`https://github.com/login/oauth/authorize?client_id=${CLIENT_ID}`);
+const getAuthorize = (_req, res) => {
+  // eslint-disable-next-line max-len
+  const url = `https://github.com/login/oauth/authorize?client_id=${config.clientId}`;
+  res.redirect(url);
+};
 
 const getCallback = (req, res, next) =>
   request({
     json: true,
     method: 'POST',
     qs: {
-      client_id: CLIENT_ID, // eslint-disable-line camelcase
-      client_secret: CLIENT_SECRET, // eslint-disable-line camelcase
+      client_id: config.clientId, // eslint-disable-line camelcase
+      client_secret: config.clientSecret, // eslint-disable-line camelcase
       code: req.query.code
     },
     url: 'https://github.com/login/oauth/access_token'
@@ -36,7 +43,7 @@ const getCallback = (req, res, next) =>
     const { access_token: token } = body;
 
     request({
-      headers: { 'User-Agent': 'grawlix/0.0.0' },
+      headers: { 'User-Agent': `${grawlix.name}/${grawlix.version}` },
       json: true,
       qs: { access_token: token }, // eslint-disable-line camelcase
       url: 'https://api.github.com/user'
@@ -58,7 +65,7 @@ const getClient = (_req, res) => res.sendFile('client.js', { root: '.' });
 const notFound = (_req, res) => res.status(statuses('not found')).json(false);
 
 const internalServerError = (err, _req, res, _next) => {
-  console.error(err);
+  console.error(err); // eslint-disable-line no-console
   res.status(statuses('internal server error')).json(false);
 };
 
@@ -71,4 +78,6 @@ express()
   .get('/client', getClient)
   .use(notFound)
   .use(internalServerError)
-  .listen(PORT, () => console.log(`Listening on port ${PORT} ...`));
+  .listen(config.port, () =>
+    // eslint-disable-next-line no-console
+    console.log(`Listening on port ${config.port} ...`));
