@@ -1,6 +1,7 @@
 /* eslint-env node */
 'use strict';
 
+const bodyParser = require('body-parser');
 const config = require('./config');
 const express = require('express');
 const grawlix = require('./package.json');
@@ -58,22 +59,39 @@ const getCallback = (req, res, next) =>
       }
 
       const { avatar_url: avatar, email, login: username, name } = body;
-      db.transaction((trx) =>
-        trx
+      db
+        .transaction((trx) => trx
           .insert({ avatar, email, name, token, username })
           .into('users')
-          .then((rows) => rows.length === 1 ? rows[0] : next(rows))
-          .catch(() =>
-            trx
-              .where({ name })
-              .update({ avatar, email, token, username })
-              .into('users')))
-        .then((id) => res.json(id))
+          .catch(() => trx
+            .where({ name })
+            .update({ avatar, email, token, username })
+            .into('users')))
+        .then(() => res.json(token))
         .catch((err) => next(err));
     });
   });
 
 const getClient = (_req, res) => res.sendFile('client.js', { root: '.' });
+
+const postComment = (req, res, next) => db
+  .transaction((trx) => trx
+    .select('id')
+    .from('users')
+    .where({ token: req.body.token })
+    .then(([user]) => trx
+      .insert({
+        anchor: req.body.anchor,
+        content: req.body.content,
+        definition: req.body.definition,
+        module: req.body.module,
+        package: req.body.package,
+        user: user.id,
+        version: req.body.version
+      })
+      .into('comments')))
+  .then(() => res.json(true))
+  .catch((err) => next(err));
 
 const notFound = (_req, res) => res.status(statuses('not found')).json(false);
 
@@ -89,6 +107,7 @@ express()
   .get('/authorize', getAuthorize)
   .get('/callback', getCallback)
   .get('/client', getClient)
+  .post('/comments', bodyParser.json(), postComment)
   .use(notFound)
   .use(internalServerError)
   .listen(config.port, () =>

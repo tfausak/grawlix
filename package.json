@@ -1,5 +1,6 @@
 {
   "dependencies": {
+    "body-parser": "1.18.1",
     "express": "4.15.4",
     "knex": "0.13.0",
     "morgan": "1.8.2",
@@ -15,7 +16,7 @@
   "private": "true",
   "repository": "tfausak/grawlix",
   "scripts": {
-    "knex": "knex",
+    "db": "knex",
     "test": "eslint ."
   },
   "version": "0.0.0"
