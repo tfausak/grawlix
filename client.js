@@ -14,11 +14,16 @@
     .querySelector('#module-header p.caption')
     .textContent;
 
-  const definitions = Array
-    .from(document.querySelectorAll('a.def'))
-    .map((element) => ({ id: element.id, name: element.textContent }));
-
-  // eslint-disable-next-line no-console
-  definitions.map((definition) => console
-    .log(packageName, version, moduleName, definition.name, definition.id));
+  document.querySelectorAll('a.def').forEach((element) => {
+    const definition = element.textContent;
+    const anchor = element.id;
+    const button = document.createElement('button');
+    button.textContent = '0 comments';
+    button.dataset.anchor = anchor;
+    button.dataset.definition = definition;
+    button.dataset.module = moduleName;
+    button.dataset.package = packageName;
+    button.dataset.version = version;
+    element.insertAdjacentElement('afterend', button);
+  });
 }());
