@@ -74,6 +74,30 @@ const getCallback = (req, res, next) =>
 
 const getClient = (_req, res) => res.sendFile('client.js', { root: '.' });
 
+const getComments = (req, res, next) => db('comments')
+  .select(
+    'comments.anchor',
+    'comments.content',
+    'comments.definition',
+    'comments.module',
+    'comments.package',
+    'comments.version',
+    'comments.when',
+    'users.avatar',
+    'users.name',
+    'users.username'
+  )
+  .innerJoin('users', 'comments.user', 'users.id')
+  .where(req.query.package ? { 'comments.package': req.query.package } : true)
+  .where(req.query.version ? { 'comments.version': req.query.version } : true)
+  .where(req.query.module ? { 'comments.module': req.query.module } : true)
+  .where(req.query.definition
+    ? { 'comments.definition': req.query.definition }
+    : true)
+  .orderBy('comments.when', 'desc')
+  .then((comments) => res.json(comments))
+  .catch((err) => next(err));
+
 const postComment = (req, res, next) => db
   .transaction((trx) => trx
     .select('id')
@@ -107,6 +131,7 @@ express()
   .get('/authorize', getAuthorize)
   .get('/callback', getCallback)
   .get('/client', getClient)
+  .get('/comments', getComments)
   .post('/comments', bodyParser.json(), postComment)
   .use(notFound)
   .use(internalServerError)
