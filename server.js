@@ -3,6 +3,7 @@
 
 const bodyParser = require('body-parser');
 const config = require('./config');
+const cors = require('cors');
 const express = require('express');
 const grawlix = require('./package.json');
 const knex = require('knex');
@@ -126,6 +127,7 @@ const internalServerError = (err, _req, res, _next) => {
 
 express()
   .disable('x-powered-by')
+  .use(cors())
   .use(morgan('tiny'))
   .get('/health-check', getHealthCheck)
   .get('/authorize', getAuthorize)

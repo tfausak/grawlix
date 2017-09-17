@@ -2,11 +2,13 @@
   "extends": "eslint:all",
   "parserOptions": { "ecmaVersion": 6 },
   "rules": {
+    "array-element-newline": "off",
     "capitalized-comments": "off",
     "consistent-return": "off",
     "dot-location": ["error", "property"],
     "indent": ["error", 2],
     "max-params": ["error", 4],
+    "max-statements": "off",
     "multiline-ternary": ["error", "always-multiline"],
     "newline-per-chained-call": "off",
     "no-confusing-arrow": "off",
