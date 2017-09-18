@@ -1,6 +1,6 @@
 # Grawlix
 
-[![Build badge][]][]
+[![Build badge][]][build status]
 
 > A string of typographical symbols, especially "@#$%&!", used (especially in
 > comic strips) to represent an obscenity or swearword.
