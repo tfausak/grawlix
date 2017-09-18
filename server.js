@@ -5,6 +5,7 @@ const bodyParser = require('body-parser');
 const config = require('./config');
 const cors = require('cors');
 const express = require('express');
+const fs = require('fs');
 const grawlix = require('./package.json');
 const knex = require('knex');
 const morgan = require('morgan');
@@ -85,7 +86,15 @@ const getCallback = (req, res, next) =>
     });
   });
 
-const getClient = (_req, res) => res.sendFile('client.js', { root: '.' });
+const getClient = (_req, res, next) =>
+  fs.readFile('client.js', 'utf8', (err, data) => {
+    if (err) {
+      return next(err);
+    }
+
+    res.set('Content-Type', 'application/javascript');
+    res.send(data.replace('GRAWLIX_URL', config.url));
+  });
 
 const getComments = (req, res, next) => db('comments')
   .select(
