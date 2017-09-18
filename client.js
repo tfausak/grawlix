@@ -69,6 +69,7 @@
             @${comment.username}
           </a>
           ${comment.when}
+          ${comment.version === version ? '' : `(v${comment.version})`}
         `;
         dl.appendChild(dt);
 

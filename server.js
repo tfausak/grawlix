@@ -8,6 +8,7 @@ const express = require('express');
 const grawlix = require('./package.json');
 const knex = require('knex');
 const morgan = require('morgan');
+const qs = require('qs');
 const request = require('request');
 const statuses = require('statuses');
 
@@ -20,9 +21,13 @@ const getHealthCheck = (_req, res, next) =>
     .then(() => res.json(true))
     .catch((err) => next(err));
 
-const getAuthorize = (_req, res) => {
-  // eslint-disable-next-line max-len
-  const url = `https://github.com/login/oauth/authorize?client_id=${config.clientId}`;
+const getAuthorize = (req, res) => {
+  const query = qs.stringify({
+    client_id: config.clientId, // eslint-disable-line camelcase
+    redirect_uri: // eslint-disable-line camelcase
+      `${config.url}/callback?${qs.stringify({ comment: req.query.comment })}`
+  });
+  const url = `https://github.com/login/oauth/authorize?${query}`;
   res.redirect(url);
 };
 
@@ -64,11 +69,18 @@ const getCallback = (req, res, next) =>
         .transaction((trx) => trx
           .insert({ avatar, email, name, token, username })
           .into('users')
+          .then(([id]) => id)
           .catch(() => trx
             .where({ name })
             .update({ avatar, email, token, username })
-            .into('users')))
-        .then(() => res.json(token))
+            .into('users'))
+          .then((id) => req.query.comment
+            ? trx
+              .where({ id: req.query.comment })
+              .update({ user: id })
+              .into('comments')
+              .then(() => res.json(token))
+            : res.json(token)))
         .catch((err) => next(err));
     });
   });
@@ -95,6 +107,7 @@ const getComments = (req, res, next) => db('comments')
   .where(req.query.definition
     ? { 'comments.definition': req.query.definition }
     : true)
+  .whereNotNull('comments.user')
   .orderBy('comments.when', 'desc')
   .then((comments) => res.json(comments))
   .catch((err) => next(err));
@@ -104,18 +117,21 @@ const postComment = (req, res, next) => db
     .select('id')
     .from('users')
     .where({ token: req.body.token })
-    .then(([user]) => trx
+    .then((users) => trx
       .insert({
         anchor: req.body.anchor,
         content: req.body.content,
         definition: req.body.definition,
         module: req.body.module,
         package: req.body.package,
-        user: user.id,
+        user: users[0] ? users[0].id : null,
         version: req.body.version
       })
-      .into('comments')))
-  .then(() => res.json(true))
+      .into('comments'))
+    .then(([id]) => trx.select().from('comments').where({ id })))
+  .then(([comment]) => comment.user
+    ? res.json(true)
+    : res.redirect(`/authorize?${qs.stringify({ comment: comment.id })}`))
   .catch((err) => next(err));
 
 const notFound = (_req, res) => res.status(statuses('not found')).json(false);
@@ -134,7 +150,7 @@ express()
   .get('/callback', getCallback)
   .get('/client', getClient)
   .get('/comments', getComments)
-  .post('/comments', bodyParser.urlencoded(), postComment)
+  .post('/comments', bodyParser.urlencoded({ extended: false }), postComment)
   .use(notFound)
   .use(internalServerError)
   .listen(config.port, () =>
