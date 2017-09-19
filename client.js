@@ -80,13 +80,9 @@
 
       const form = document.createElement('form');
       form.method = 'POST';
-      form.action = `${root}/comments`;
+      form.action =
+        `${root}/comments?redirect=${encodeURIComponent(window.location)}`;
       form.innerHTML = `
-        <input
-          type="hidden"
-          name="token"
-          value="${window.localStorage.token}"
-        />
         <input type="hidden" name="package" value="${packageName}" />
         <input type="hidden" name="version" value="${version}" />
         <input type="hidden" name="module" value="${moduleName}" />

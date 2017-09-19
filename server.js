@@ -2,6 +2,7 @@
 'use strict';
 
 const bodyParser = require('body-parser');
+const cookieParser = require('cookie-parser');
 const config = require('./config');
 const cors = require('cors');
 const express = require('express');
@@ -26,7 +27,10 @@ const getAuthorize = (req, res) => {
   const query = qs.stringify({
     client_id: config.clientId, // eslint-disable-line camelcase
     redirect_uri: // eslint-disable-line camelcase
-      `${config.url}/callback?${qs.stringify({ comment: req.query.comment })}`
+      `${config.url}/callback?${qs.stringify({
+        comment: req.query.comment,
+        redirect: req.query.redirect
+      })}`
   });
   const url = `https://github.com/login/oauth/authorize?${query}`;
   res.redirect(url);
@@ -80,8 +84,11 @@ const getCallback = (req, res, next) =>
               .where({ id: req.query.comment })
               .update({ user: id })
               .into('comments')
-              .then(() => res.json(token))
-            : res.json(token)))
+            : trx.return()))
+        .then(() => {
+          res.cookie('token', token);
+          res.redirect(req.query.redirect);
+        })
         .catch((err) => next(err));
     });
   });
@@ -125,7 +132,7 @@ const postComment = (req, res, next) => db
   .transaction((trx) => trx
     .select('id')
     .from('users')
-    .where({ token: req.body.token })
+    .where({ token: req.cookies.token || null })
     .then((users) => trx
       .insert({
         anchor: req.body.anchor,
@@ -139,8 +146,11 @@ const postComment = (req, res, next) => db
       .into('comments'))
     .then(([id]) => trx.select().from('comments').where({ id })))
   .then(([comment]) => comment.user
-    ? res.json(true)
-    : res.redirect(`/authorize?${qs.stringify({ comment: comment.id })}`))
+    ? res.redirect(req.query.redirect)
+    : res.redirect(`/authorize?${qs.stringify({
+      comment: comment.id,
+      redirect: req.query.redirect
+    })}`))
   .catch((err) => next(err));
 
 const notFound = (_req, res) => res.status(statuses('not found')).json(false);
@@ -152,6 +162,7 @@ const internalServerError = (err, _req, res, _next) => {
 
 express()
   .disable('x-powered-by')
+  .use(cookieParser())
   .use(cors())
   .use(morgan('tiny'))
   .get('/health-check', getHealthCheck)

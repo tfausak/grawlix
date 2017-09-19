@@ -5,6 +5,8 @@
 module.exports = {
   clientId: process.env.CLIENT_ID || 'd5c2fc36b20bd8be47c9',
   clientSecret: process.env.CLIENT_SECRET || '',
-  port: process.env.PORT || '8080',
-  url: process.env.URL || 'http://localhost:8080'
+  port: process.env.PORT || '8080'
 };
+
+module.exports.url = process.env.URL ||
+  `http://127.0.0.1:${module.exports.port}`;
