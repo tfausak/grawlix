@@ -1,8 +1,10 @@
 /* eslint-env node */
 'use strict';
 
+const config = require('./config');
+
 module.exports = {
-  client: 'sqlite3',
-  connection: { filename: 'grawlix.sqlite3' },
+  client: 'pg',
+  connection: config.database,
   useNullAsDefault: true
 };

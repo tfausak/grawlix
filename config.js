@@ -5,6 +5,8 @@
 module.exports = {
   clientId: process.env.CLIENT_ID || 'd5c2fc36b20bd8be47c9',
   clientSecret: process.env.CLIENT_SECRET || '',
+  database: process.env.DATABASE ||
+    'postgres://postgres:password@localhost:5432/postgres',
   port: process.env.PORT || '8080'
 };
 

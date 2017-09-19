@@ -143,7 +143,8 @@ const postComment = (req, res, next) => db
         user: users[0] ? users[0].id : null,
         version: req.body.version
       })
-      .into('comments'))
+      .into('comments')
+      .returning('id'))
     .then(([id]) => trx.select().from('comments').where({ id })))
   .then(([comment]) => comment.user
     ? res.redirect(req.query.redirect)
