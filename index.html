@@ -1,0 +1,57 @@
+<!doctype html>
+
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>Grawlix</title>
+  </head>
+  <body>
+    <h1>Grawlix</h1>
+    <p>
+      Grawlix lets you comment on Haskell documentation. It's still alpha
+      quality, but it works. Read more about the project
+      <a href="https://github.com/tfausak/grawlix">on GitHub</a>. Here's how to
+      use it:
+    </p>
+    <ol>
+      <li>
+        Get <a href="/client">the client</a>.
+      </li>
+      <li>
+        Select everything (<code>Ctrl + A</code>) and copy it
+        (<code>Ctrl + C</code>).
+      </li>
+      <li>
+        Go to some Haskell documentation on Hackage or Stackage. For example,
+        <a href="https://hackage.haskell.org/package/salve-0.0.8/docs/Salve.html">Salve</a>.
+      </li>
+      <li>
+        Open the developer console (<code>Ctrl + Shift + I</code>). This has
+        only been tested on Windows so far.
+      </li>
+      <li>
+        Paste all the code from the client (<code>Ctrl + V</code>) and run it
+        (<code>Enter</code>).
+      </li>
+      <li>
+        The comment sections should load in. Pretty much nothing will have any
+        comments yet.
+        <br>
+        <img alt="" src="https://i.imgur.com/p22Rpdi.png">
+      </li>
+      <li>
+        Type in a comment and click "Submit". You'll bounce through some
+        redirects, including GitHub's OAuth. You should end up back on the page
+        you were on.
+      </li>
+      <li>
+        Re-open the developer console, re-paste the JavaScript, and re-run it.
+      </li>
+      <li>
+        Your comment should show up. Hooray!
+        <br>
+        <img alt="" src="https://i.imgur.com/LvU1E6A.png">
+      </li>
+    </ol>
+  </body>
+</html>

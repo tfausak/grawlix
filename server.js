@@ -18,6 +18,8 @@ const db = knex(require('./knexfile'));
 // eslint-disable-next-line no-console
 db.on('query', (query) => console.log(`${query.sql} -- [${query.bindings}]`));
 
+const getRoot = (_req, res) => res.sendFile('index.html', { root: '.' });
+
 const getHealthCheck = (_req, res, next) =>
   db.select(db.raw('1'))
     .then(() => res.json(true))
@@ -166,6 +168,7 @@ express()
   .use(cookieParser())
   .use(cors())
   .use(morgan('tiny'))
+  .get('/', getRoot)
   .get('/health-check', getHealthCheck)
   .get('/authorize', getAuthorize)
   .get('/callback', getCallback)
