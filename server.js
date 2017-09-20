@@ -90,23 +90,24 @@ const getCallback = (req, res, next) =>
 
       const { avatar_url: avatar, email, login: username, name } = body;
       db
-        .transaction((trx) => trx
-          .insert({ avatar, email, name, token, username })
-          .into('users')
-          .then(([id]) => id)
-          .catch(() => trx
-            .where({ name })
-            .update({ avatar, email, token, username })
-            .into('users'))
-          .then((id) => req.query.comment
-            ? trx
-              .where({ id: req.query.comment })
-              .update({ user: id })
-              .into('comments')
-            : trx.return()))
+        .raw(`
+          insert into users (avatar, email, name, token, username)
+          values (:avatar, :email, :name, :token, :username)
+          on conflict (username) do update set
+            avatar = excluded.avatar,
+            email = excluded.email,
+            name = excluded.name,
+            token = excluded.token
+          returning id
+        `.replace(/\s+/g, ' '), { avatar, email, name, token, username })
+        .then((result) => req.query.comment
+          ? db('comments')
+            .update({ user: result.rows[0].id })
+            .where({ id: req.query.comment })
+          : db.return())
         .then(() => {
           res.cookie('token', token);
-          res.redirect(req.query.redirect);
+          res.redirect(req.query.redirect || config.url);
         })
         .catch((err) => next(err));
     });
