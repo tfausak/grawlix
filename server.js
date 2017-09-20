@@ -18,7 +18,34 @@ const db = knex(require('./knexfile'));
 // eslint-disable-next-line no-console
 db.on('query', (query) => console.log(`${query.sql} -- [${query.bindings}]`));
 
-const getRoot = (_req, res) => res.sendFile('index.html', { root: '.' });
+let cachedIndex = null;
+const getRoot = (_req, res, next) => {
+  const send = (data) => {
+    res.set('Content-Type', 'text/html');
+    res.send(data);
+  };
+
+  if (cachedIndex) {
+    send(cachedIndex);
+  }
+
+  fs.readFile('index.html', 'utf8', (err, html) => {
+    if (err) {
+      return next(err);
+    }
+
+    fs.readFile('client.js', 'utf8', (err, js) => {
+      if (err) {
+        return next(err);
+      }
+
+      const client = js.replace('{{ GRAWLIX_URL }}', config.url);
+      const bookmarklet = `javascript:${encodeURIComponent(client)}`;
+      cachedIndex = html.replace('{{ BOOKMARKLET }}', bookmarklet);
+      send(cachedIndex);
+    });
+  });
+};
 
 const getHealthCheck = (_req, res, next) =>
   db.select(db.raw('1'))
@@ -95,27 +122,6 @@ const getCallback = (req, res, next) =>
     });
   });
 
-let cachedClient = null;
-const getClient = (_req, res, next) => {
-  const callback = (data) => {
-    res.set('Content-Type', 'application/javascript');
-    res.send(data);
-  };
-
-  if (cachedClient) {
-    return callback(cachedClient);
-  }
-
-  fs.readFile('client.js', 'utf8', (err, data) => {
-    if (err) {
-      return next(err);
-    }
-
-    cachedClient = data.replace('GRAWLIX_URL', config.url);
-    return callback(cachedClient);
-  });
-};
-
 const getComments = (req, res, next) => db('comments')
   .select(
     'comments.anchor',
@@ -180,12 +186,11 @@ express()
   .use(cors())
   .use(morgan('tiny'))
   .get('/', getRoot)
-  .get('/health-check', getHealthCheck)
   .get('/authorize', getAuthorize)
   .get('/callback', getCallback)
-  .get('/client', getClient)
   .get('/comments', getComments)
   .post('/comments', bodyParser.urlencoded({ extended: false }), postComment)
+  .get('/health-check', getHealthCheck)
   .use(notFound)
   .use(internalServerError)
   .listen(config.port, () =>

@@ -2,7 +2,7 @@
 (function grawlix () {
   'use strict';
 
-  const root = 'GRAWLIX_URL';
+  const root = '{{ GRAWLIX_URL }}';
   let commentsByDefinition = {};
   const ok = 200;
   const pluralize = (number, word) =>
