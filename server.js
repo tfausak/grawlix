@@ -18,17 +18,7 @@ const db = knex(require('./knexfile'));
 // eslint-disable-next-line no-console
 db.on('query', (query) => console.log(`${query.sql} -- [${query.bindings}]`));
 
-let cachedIndex = null;
-const getRoot = (_req, res, next) => {
-  const send = (data) => {
-    res.set('Content-Type', 'text/html');
-    res.send(data);
-  };
-
-  if (cachedIndex) {
-    send(cachedIndex);
-  }
-
+const getRoot = (_req, res, next) =>
   fs.readFile('index.html', 'utf8', (err, html) => {
     if (err) {
       return next(err);
@@ -41,11 +31,11 @@ const getRoot = (_req, res, next) => {
 
       const client = js.replace('{{ GRAWLIX_URL }}', config.url);
       const bookmarklet = `javascript:${encodeURIComponent(client)}`;
-      cachedIndex = html.replace('{{ BOOKMARKLET }}', bookmarklet);
-      send(cachedIndex);
+      const index = html.replace('{{ BOOKMARKLET }}', bookmarklet);
+      res.set('Content-Type', 'text/html');
+      res.send(index);
     });
   });
-};
 
 const getHealthCheck = (_req, res, next) =>
   db.select(db.raw('1'))
