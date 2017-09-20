@@ -95,15 +95,26 @@ const getCallback = (req, res, next) =>
     });
   });
 
-const getClient = (_req, res, next) =>
+let cachedClient = null;
+const getClient = (_req, res, next) => {
+  const callback = (data) => {
+    res.set('Content-Type', 'application/javascript');
+    res.send(data);
+  };
+
+  if (cachedClient) {
+    return callback(cachedClient);
+  }
+
   fs.readFile('client.js', 'utf8', (err, data) => {
     if (err) {
       return next(err);
     }
 
-    res.set('Content-Type', 'application/javascript');
-    res.send(data.replace('GRAWLIX_URL', config.url));
+    cachedClient = data.replace('GRAWLIX_URL', config.url);
+    return callback(cachedClient);
   });
+};
 
 const getComments = (req, res, next) => db('comments')
   .select(
