@@ -1,4 +1,8 @@
-/*.sqlite3
-/node_modules/
-/package-lock.json
-/yarn.lock
+.stack-work/
+*.cabal
+*.hi
+*.hp
+*.o
+*.prof
+*.tix
+cache/
