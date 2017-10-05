@@ -34,6 +34,7 @@ library:
     - http-types
     - pretty
     - tar
+    - template-haskell
     - text
     - zlib
   source-dirs: library

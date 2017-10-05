@@ -1,4 +1,5 @@
 {-# LANGUAGE NamedFieldPuns #-}
+{-# LANGUAGE QuasiQuotes #-}
 
 module Grawlix (main) where
 
@@ -23,18 +24,26 @@ import qualified Distribution.ModuleName as Cabal
 import qualified Distribution.Package as Cabal
 import qualified Distribution.PackageDescription as Cabal
 import qualified Distribution.PackageDescription.Parse as Cabal
+import qualified Distribution.Text as Cabal
 import qualified Distribution.Version as Cabal
-import qualified Hasql.Connection as Hasql
-import qualified Hasql.Migration as Hasql
-import qualified Hasql.Session as Hasql
-import qualified Hasql.Transaction as Hasql
-import qualified Hasql.Transaction.Sessions as Hasql
+import qualified Hasql.Connection as Sql
+import qualified Hasql.Decoders as Sql.Decode
+import qualified Hasql.Encoders as Sql.Encode
+import qualified Hasql.Migration as Sql
+import qualified Hasql.Query as Sql
+import qualified Hasql.Session as Sql
+import qualified Hasql.Transaction as Sql.Transaction
+import qualified Hasql.Transaction.Sessions as Sql
 import qualified Network.HTTP.Client as Client
 import qualified Network.HTTP.Client.TLS as Client
 import qualified Network.HTTP.Types as Http
+import qualified QQ
 import qualified System.Directory as Directory
 import qualified System.Environment as Environment
 import qualified System.FilePath as Path
+import qualified Text.PrettyPrint as Pretty
+import qualified Text.Printf as Printf
+import qualified Text.Read as Read
 
 
 main :: IO ()
@@ -45,19 +54,19 @@ main = do
       |> Maybe.fromMaybe ""
       |> Text.pack
       |> Text.encodeUtf8
-      |> Hasql.acquire
+      |> Sql.acquire
     case result of
       Left problem -> fail (show problem)
       Right connection -> pure connection
 
-  migrations <- Hasql.loadMigrationsFromDirectory "migrations"
-  Monad.forM_ (Hasql.MigrationInitialization : migrations) (\ migration -> do
+  migrations <- Sql.loadMigrationsFromDirectory "migrations"
+  Monad.forM_ (Sql.MigrationInitialization : migrations) (\ migration -> do
     let session = migration
-          |> Hasql.runMigration
-          |> Hasql.transaction Hasql.Serializable Hasql.Write
-    result <- Hasql.run session connection
+          |> Sql.runMigration
+          |> Sql.transaction Sql.Transaction.Serializable Sql.Transaction.Write
+    result <- Sql.run session connection
     case result of
-      Right Hasql.MigrationSuccess -> pure ()
+      Right Sql.MigrationSuccess -> pure ()
       _ -> fail (show result))
 
   manager <- Client.newTlsManager
@@ -74,14 +83,13 @@ main = do
     |> Maybe.mapMaybe lazyDecodeUtf8
     |> Maybe.mapMaybe parseDescription
     |> map toPackage
-    -- TODO: Insert packages into database.
-    |> take 1
-    |> print
+    |> mapM_ (insertPackage connection)
 
 
 data Package = Package
   { packageName :: Cabal.PackageName
   , packageVersion :: Cabal.Version
+  , packageRevision :: Int
   , packageLicense :: Cabal.License
   , packageSynopsis :: String
   , packageDescription :: String
@@ -125,6 +133,45 @@ data Benchmark = Benchmark
   } deriving Show
 
 
+insertPackage :: Sql.Connection -> Package -> IO ()
+insertPackage connection package = do
+  Printf.printf "%s\t%s\t%d\n"
+    (package |> packageName |> Cabal.unPackageName)
+    (package |> packageVersion |> Cabal.disp |> Pretty.render)
+    (package |> packageRevision)
+
+  runSql
+    connection
+    [QQ.string|
+      insert into packages ( name )
+      values ( $1 )
+      on conflict do nothing
+    |]
+    (Sql.Encode.value Sql.Encode.text)
+    Sql.Decode.unit
+    (package |> packageName |> Cabal.unPackageName |> Text.pack)
+
+  -- TODO: More stuff.
+
+
+runSql
+  :: Sql.Connection
+  -> String
+  -> Sql.Encode.Params a
+  -> Sql.Decode.Result b
+  -> a
+  -> IO b
+runSql connection rawSql encoder decoder params = do
+  let sql = rawSql |> Text.pack |> Text.encodeUtf8
+  let prepare = True
+  let query = Sql.statement sql encoder decoder prepare
+  let session = Sql.query params query
+  result <- Sql.run session connection
+  case result of
+    Left problem -> fail (show problem)
+    Right value -> pure value
+
+
 toPackage :: Cabal.GenericPackageDescription -> Package
 toPackage package = Package
   { packageName = package
@@ -135,6 +182,13 @@ toPackage package = Package
     |> Cabal.packageDescription
     |> Cabal.package
     |> Cabal.pkgVersion
+  , packageRevision = package
+    |> Cabal.packageDescription
+    |> Cabal.customFieldsPD
+    |> lookup "x-revision"
+    |> Maybe.fromMaybe ""
+    |> Read.readMaybe
+    |> Maybe.fromMaybe 0
   , packageLicense = package |> Cabal.packageDescription |> Cabal.license
   , packageSynopsis = package |> Cabal.packageDescription |> Cabal.synopsis
   , packageDescription = package
