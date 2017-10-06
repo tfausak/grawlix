@@ -14,6 +14,7 @@ import qualified Data.ByteString.Base16 as Base16
 import qualified Data.ByteString.Base64 as Base64
 import qualified Data.ByteString.Lazy as LazyBytes
 import qualified Data.Foldable as Foldable
+import qualified Data.Int as Int
 import qualified Data.Maybe as Maybe
 import qualified Data.Text as Text
 import qualified Data.Text.Encoding as Text
@@ -150,6 +151,21 @@ insertPackage connection package = do
     (Sql.Encode.value Sql.Encode.text)
     Sql.Decode.unit
     (package |> packageName |> Cabal.unPackageName |> Text.pack)
+
+  runSql
+    connection
+    [QQ.string|
+      insert into versions ( parts )
+      values ( $1 )
+      on conflict do nothing
+    |]
+    (Sql.Encode.int4
+      |> Sql.Encode.arrayValue
+      |> Sql.Encode.arrayDimension foldl
+      |> Sql.Encode.array
+      |> Sql.Encode.value)
+    Sql.Decode.unit
+    (package |> packageVersion |> Cabal.versionBranch |> map intToInt32)
 
   -- TODO: More stuff.
 
@@ -385,3 +401,7 @@ fromEither :: Either left right -> Maybe right
 fromEither e = case e of
   Right r -> Just r
   _ -> Nothing
+
+
+intToInt32 :: Int -> Int.Int32
+intToInt32 = fromIntegral
