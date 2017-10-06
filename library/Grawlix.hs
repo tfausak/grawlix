@@ -7,6 +7,7 @@ import Flow ((|>))
 
 import qualified Codec.Archive.Tar as Tar
 import qualified Codec.Compression.GZip as Gzip
+import qualified Contravariant.Extras as Contravariant
 import qualified Control.Exception as Exception
 import qualified Control.Monad as Monad
 import qualified Data.ByteString as Bytes
@@ -164,11 +165,7 @@ insertPackage connection package = do
       values ( $1 )
       on conflict do nothing
     |]
-    (Sql.Encode.int4
-      |> Sql.Encode.arrayValue
-      |> Sql.Encode.arrayDimension foldl
-      |> Sql.Encode.array
-      |> Sql.Encode.value)
+    (arrayOf Sql.Encode.int4)
     Sql.Decode.unit
     version
 
@@ -187,6 +184,45 @@ insertPackage connection package = do
     (Sql.Encode.value Sql.Encode.text)
     Sql.Decode.unit
     license
+
+  runSql
+    connection
+    [QQ.string|
+      insert into packages (
+        package_name_id,
+        version_id,
+        revision,
+        license_id,
+        synopsis,
+        description,
+        url
+      ) values (
+        ( select id from package_names where content = $1 ),
+        ( select id from versions where content = $2 ),
+        $3,
+        ( select id from licenses where content = $4 ),
+        $5,
+        $6,
+        $7
+      ) on conflict do nothing
+    |]
+    (Contravariant.contrazip7
+      (Sql.Encode.value Sql.Encode.text)
+      (arrayOf Sql.Encode.int4)
+      (Sql.Encode.value Sql.Encode.int4)
+      (Sql.Encode.value Sql.Encode.text)
+      (Sql.Encode.value Sql.Encode.text)
+      (Sql.Encode.value Sql.Encode.text)
+      (Sql.Encode.value Sql.Encode.text))
+    Sql.Decode.unit
+    ( name
+    , version
+    , package |> packageRevision |> intToInt32
+    , license
+    , package |> packageSynopsis |> Text.pack
+    , package |> packageDescription |> Text.pack
+    , package |> packageUrl |> Text.pack
+    )
 
   -- TODO: More stuff.
 
@@ -426,3 +462,11 @@ fromEither e = case e of
 
 intToInt32 :: Int -> Int.Int32
 intToInt32 = fromIntegral
+
+
+arrayOf :: Sql.Encode.Value a -> Sql.Encode.Params [a]
+arrayOf x = x
+  |> Sql.Encode.arrayValue
+  |> Sql.Encode.arrayDimension foldl
+  |> Sql.Encode.array
+  |> Sql.Encode.value
