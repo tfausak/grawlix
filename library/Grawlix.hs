@@ -95,7 +95,7 @@ data Package = Package
   , packageLicense :: Cabal.License
   , packageSynopsis :: String
   , packageDescription :: String
-  , packageCategory :: String
+  , packageCategories :: [Text.Text]
   , packageUrl :: String
   , packageRepos :: [Repo]
   , packageLibraries :: [Library]
@@ -267,7 +267,13 @@ toPackage package = Package
   , packageDescription = package
     |> Cabal.packageDescription
     |> Cabal.description
-  , packageCategory = package |> Cabal.packageDescription |> Cabal.category
+  , packageCategories = package
+    |> Cabal.packageDescription
+    |> Cabal.category
+    |> Text.pack
+    |> Text.splitOn (Text.singleton ',')
+    |> map Text.strip
+    |> filter (\ category -> category |> Text.null |> not)
   , packageUrl = package |> Cabal.packageDescription |> Cabal.homepage
   , packageRepos = package
     |> Cabal.packageDescription
