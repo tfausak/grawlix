@@ -57,7 +57,7 @@ main = do
       |> Text.encodeUtf8
       |> Sql.acquire
     case result of
-      Left problem -> fail (show problem)
+      Left problem -> problem |> show |> fail
       Right connection -> pure connection
 
   migrations <- Sql.loadMigrationsFromDirectory "migrations"
@@ -68,7 +68,7 @@ main = do
     result <- Sql.run session connection
     case result of
       Right Sql.MigrationSuccess -> pure ()
-      _ -> fail (show result))
+      _ -> result |> show |> fail)
 
   manager <- Client.newTlsManager
   maybeMd5 <- getLatestIndexMd5 manager
@@ -144,7 +144,7 @@ insertPackage connection package = do
   runSql
     connection
     [QQ.string|
-      insert into packages ( name )
+      insert into package_names ( content )
       values ( $1 )
       on conflict do nothing
     |]
@@ -155,7 +155,7 @@ insertPackage connection package = do
   runSql
     connection
     [QQ.string|
-      insert into versions ( parts )
+      insert into versions ( content )
       values ( $1 )
       on conflict do nothing
     |]
