@@ -185,6 +185,7 @@ insertPackage connection package = do
     Sql.Decode.unit
     license
 
+  let revision = package |> packageRevision |> intToInt32
   runSql
     connection
     [QQ.string|
@@ -217,12 +218,24 @@ insertPackage connection package = do
     Sql.Decode.unit
     ( name
     , version
-    , package |> packageRevision |> intToInt32
+    , revision
     , license
     , package |> packageSynopsis |> Text.pack
     , package |> packageDescription |> Text.pack
     , package |> packageUrl |> Text.pack
     )
+
+  let categories = package |> packageCategories
+  Monad.forM_ categories (\ category -> runSql
+    connection
+    [QQ.string|
+      insert into categories ( content )
+      values ( $1 )
+      on conflict do nothing
+    |]
+    (Sql.Encode.value Sql.Encode.text)
+    Sql.Decode.unit
+    category)
 
   -- TODO: More stuff.
 
