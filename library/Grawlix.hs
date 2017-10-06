@@ -141,6 +141,7 @@ insertPackage connection package = do
     (package |> packageVersion |> Cabal.disp |> Pretty.render)
     (package |> packageRevision)
 
+  let name = package |> packageName |> Cabal.unPackageName |> Text.pack
   runSql
     connection
     [QQ.string|
@@ -150,8 +151,12 @@ insertPackage connection package = do
     |]
     (Sql.Encode.value Sql.Encode.text)
     Sql.Decode.unit
-    (package |> packageName |> Cabal.unPackageName |> Text.pack)
+    name
 
+  let version = package
+        |> packageVersion
+        |> Cabal.versionBranch
+        |> map intToInt32
   runSql
     connection
     [QQ.string|
@@ -165,7 +170,23 @@ insertPackage connection package = do
       |> Sql.Encode.array
       |> Sql.Encode.value)
     Sql.Decode.unit
-    (package |> packageVersion |> Cabal.versionBranch |> map intToInt32)
+    version
+
+  let license = package
+        |> packageLicense
+        |> Cabal.disp
+        |> Pretty.render
+        |> Text.pack
+  runSql
+    connection
+    [QQ.string|
+      insert into licenses ( content )
+      values ( $1 )
+      on conflict do nothing
+    |]
+    (Sql.Encode.value Sql.Encode.text)
+    Sql.Decode.unit
+    license
 
   -- TODO: More stuff.
 
