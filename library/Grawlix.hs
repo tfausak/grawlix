@@ -54,26 +54,12 @@ import qualified Text.Read as Read
 
 main :: IO ()
 main = do
-  connection <- do
-    maybeSettings <- Environment.lookupEnv "DATABASE"
-    result <- maybeSettings
-      |> Maybe.fromMaybe ""
-      |> Text.pack
-      |> Text.encodeUtf8
-      |> Sql.acquire
-    case result of
-      Left problem -> problem |> show |> fail
-      Right connection -> pure connection
+  connection <- getConnection
 
   migrations <- Sql.loadMigrationsFromDirectory "migrations"
-  Monad.forM_ (Sql.MigrationInitialization : migrations) (\ migration -> do
-    let session = migration
-          |> Sql.runMigration
-          |> Sql.transaction Sql.Transaction.Serializable Sql.Transaction.Write
-    result <- Sql.run session connection
-    case result of
-      Right Sql.MigrationSuccess -> pure ()
-      _ -> result |> show |> fail)
+  migrations
+    |> prepend Sql.MigrationInitialization
+    |> mapM_ (runMigration connection)
 
   manager <- Client.newTlsManager
   maybeMd5 <- getLatestIndexMd5 manager
@@ -137,9 +123,12 @@ data Repo = Repo
 
 
 data Library = Library
-  { libraryModules :: [Cabal.ModuleName]
+  { libraryModules :: [ModuleName]
   , libraryDependencies :: [Cabal.Dependency]
   } deriving Show
+
+
+type ModuleName = Tagged.Tagged "ModuleName" [Text.Text]
 
 
 data Executable = Executable
@@ -162,14 +151,7 @@ data Benchmark = Benchmark
 
 handlePackage :: Sql.Connection -> Package -> IO ()
 handlePackage connection package = do
-  Printf.printf "%s\t%s\t%d\n"
-    (package |> packageName |> Tagged.untag |> Text.unpack)
-    (package
-      |> packageVersion
-      |> Tagged.untag
-      |> map show
-      |> List.intercalate ".")
-    (package |> packageRevision |> Tagged.untag)
+  logPackage package
 
   let name = packageName package
   runQuery connection insertPackageName name
@@ -200,7 +182,37 @@ handlePackage connection package = do
       categoryId <- runQuery connection selectCategoryId category
       runQuery connection insertCategoryPackage (categoryId, packageId))
 
+  package
+    |> packageLibraries
+    |> concatMap libraryModules
+    |> mapM_ (\ moduleName -> do
+      runQuery connection insertModuleName moduleName
+      -- TODO: Connect module names to libraries.
+      pure ())
+
   -- TODO: More stuff.
+
+
+logPackage :: Package -> IO ()
+logPackage package = Printf.printf "%s\t%s\t%d\n"
+  (package |> packageName |> Tagged.untag |> Text.unpack)
+  (package
+    |> packageVersion
+    |> Tagged.untag
+    |> map show
+    |> List.intercalate ".")
+  (package |> packageRevision |> Tagged.untag)
+
+
+insertModuleName :: Sql.Query ModuleName ()
+insertModuleName = makeQuery
+  [QQ.string|
+    insert into module_names ( content )
+    values ( $1 )
+    on conflict do nothing
+  |]
+  (Sql.Encode.text |> arrayOf |> contraUntag)
+  Sql.Decode.unit
 
 
 insertPackageName :: Sql.Query PackageName ()
@@ -453,7 +465,12 @@ toRepo repo = do
 
 toLibrary :: Cabal.Library -> Library
 toLibrary library = Library
-  { libraryModules = library |> Cabal.exposedModules
+  { libraryModules = library
+    |> Cabal.exposedModules
+    |> map (\ moduleName -> moduleName
+      |> Cabal.components
+      |> map Text.pack
+      |> Tagged.Tagged)
   , libraryDependencies = library
     |> Cabal.libBuildInfo
     |> Cabal.targetBuildDepends
@@ -607,3 +624,31 @@ arrayOf x = x
 
 contraUntag :: Contravariant.Contravariant f => f a -> f (Tagged.Tagged t a)
 contraUntag = Contravariant.contramap Tagged.untag
+
+
+runMigration :: Sql.Connection -> Sql.MigrationCommand -> IO ()
+runMigration connection migration = do
+  let session = migration
+        |> Sql.runMigration
+        |> Sql.transaction Sql.Transaction.Serializable Sql.Transaction.Write
+  result <- Sql.run session connection
+  case result of
+    Right Sql.MigrationSuccess -> pure ()
+    _ -> result |> show |> fail
+
+
+prepend :: a -> [a] -> [a]
+prepend x xs = x : xs
+
+
+getConnection :: IO Sql.Connection
+getConnection = do
+  maybeSettings <- Environment.lookupEnv "DATABASE"
+  result <- maybeSettings
+    |> Maybe.fromMaybe ""
+    |> Text.pack
+    |> Text.encodeUtf8
+    |> Sql.acquire
+  case result of
+    Left problem -> problem |> show |> fail
+    Right connection -> pure connection
