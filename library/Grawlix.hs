@@ -1,3 +1,4 @@
+{-# LANGUAGE DataKinds #-}
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE QuasiQuotes #-}
 
@@ -15,8 +16,10 @@ import qualified Data.ByteString.Base16 as Base16
 import qualified Data.ByteString.Base64 as Base64
 import qualified Data.ByteString.Lazy as LazyBytes
 import qualified Data.Foldable as Foldable
+import qualified Data.Functor.Contravariant as Contravariant
 import qualified Data.Int as Int
 import qualified Data.Maybe as Maybe
+import qualified Data.Tagged as Tagged
 import qualified Data.Text as Text
 import qualified Data.Text.Encoding as Text
 import qualified Data.Text.Lazy as LazyText
@@ -91,7 +94,7 @@ main = do
 data Package = Package
   { packageName :: Cabal.PackageName
   , packageVersion :: Cabal.Version
-  , packageRevision :: Int
+  , packageRevision :: Revision
   , packageLicense :: Cabal.License
   , packageSynopsis :: String
   , packageDescription :: String
@@ -103,6 +106,9 @@ data Package = Package
   , packageTests :: [Test]
   , packageBenchmarks :: [Benchmark]
   } deriving Show
+
+
+type Revision = Tagged.Tagged "Revision" Int.Int32
 
 
 data Repo = Repo
@@ -140,7 +146,7 @@ handlePackage connection package = do
   Printf.printf "%s\t%s\t%d\n"
     (package |> packageName |> Cabal.unPackageName)
     (package |> packageVersion |> Cabal.disp |> Pretty.render)
-    (package |> packageRevision)
+    (package |> packageRevision |> Tagged.untag)
 
   let name = package |> packageName |> Cabal.unPackageName |> Text.pack
   runQuery connection insertPackageName name
@@ -158,7 +164,7 @@ handlePackage connection package = do
         |> Text.pack
   runQuery connection insertLicense license
 
-  let revision = package |> packageRevision |> intToInt32
+  let revision = packageRevision package
   runQuery connection insertPackage
     ( name
     , version
@@ -217,7 +223,7 @@ insertPackage
   :: Sql.Query
     ( Text.Text
     , [Int.Int32]
-    , Int.Int32
+    , Revision
     , Text.Text
     , Text.Text
     , Text.Text
@@ -247,7 +253,9 @@ insertPackage = makeQuery
   (Contravariant.contrazip7
     (Sql.Encode.value Sql.Encode.text)
     (arrayOf Sql.Encode.int4)
-    (Sql.Encode.value Sql.Encode.int4)
+    (Sql.Encode.int4
+      |> Sql.Encode.value
+      |> Contravariant.contramap Tagged.untag)
     (Sql.Encode.value Sql.Encode.text)
     (Sql.Encode.value Sql.Encode.text)
     (Sql.Encode.value Sql.Encode.text)
@@ -255,7 +263,7 @@ insertPackage = makeQuery
   Sql.Decode.unit
 
 
-selectPackageId :: Sql.Query (Text.Text, [Int.Int32], Int.Int32) Int.Int32
+selectPackageId :: Sql.Query (Text.Text, [Int.Int32], Revision) Int.Int32
 selectPackageId = makeQuery
   [QQ.string|
     select packages.id
@@ -271,7 +279,9 @@ selectPackageId = makeQuery
   (Contravariant.contrazip3
     (Sql.Encode.value Sql.Encode.text)
     (arrayOf Sql.Encode.int4)
-    (Sql.Encode.value Sql.Encode.int4))
+    (Sql.Encode.int4
+      |> Sql.Encode.value
+      |> Contravariant.contramap Tagged.untag))
   (Sql.Decode.int4 |> Sql.Decode.value |> Sql.Decode.singleRow)
 
 
@@ -345,6 +355,8 @@ toPackage package = Package
     |> Maybe.fromMaybe ""
     |> Read.readMaybe
     |> Maybe.fromMaybe 0
+    |> intToInt32
+    |> Tagged.Tagged
   , packageLicense = package |> Cabal.packageDescription |> Cabal.license
   , packageSynopsis = package |> Cabal.packageDescription |> Cabal.synopsis
   , packageDescription = package

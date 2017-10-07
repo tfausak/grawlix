@@ -23,6 +23,7 @@ library:
     - base64-bytestring
     - bytestring
     - Cabal
+    - contravariant
     - contravariant-extras
     - directory
     - filepath
@@ -34,6 +35,7 @@ library:
     - http-client-tls
     - http-types
     - pretty
+    - tagged
     - tar
     - template-haskell
     - text
