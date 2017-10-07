@@ -1,5 +1,6 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE NamedFieldPuns #-}
+{-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE QuasiQuotes #-}
 
 module Grawlix (main) where
@@ -18,13 +19,13 @@ import qualified Data.ByteString.Lazy as LazyBytes
 import qualified Data.Foldable as Foldable
 import qualified Data.Functor.Contravariant as Contravariant
 import qualified Data.Int as Int
+import qualified Data.List as List
 import qualified Data.Maybe as Maybe
 import qualified Data.Tagged as Tagged
 import qualified Data.Text as Text
 import qualified Data.Text.Encoding as Text
 import qualified Data.Text.Lazy as LazyText
 import qualified Data.Text.Lazy.Encoding as LazyText
-import qualified Distribution.License as Cabal
 import qualified Distribution.ModuleName as Cabal
 import qualified Distribution.Package as Cabal
 import qualified Distribution.PackageDescription as Cabal
@@ -92,13 +93,13 @@ main = do
 
 
 data Package = Package
-  { packageName :: Cabal.PackageName
-  , packageVersion :: Cabal.Version
+  { packageName :: PackageName
+  , packageVersion :: Version
   , packageRevision :: Revision
-  , packageLicense :: Cabal.License
+  , packageLicense :: License
   , packageSynopsis :: String
   , packageDescription :: String
-  , packageCategories :: [Text.Text]
+  , packageCategories :: [Category]
   , packageUrl :: String
   , packageRepos :: [Repo]
   , packageLibraries :: [Library]
@@ -108,7 +109,25 @@ data Package = Package
   } deriving Show
 
 
+type PackageName = Tagged.Tagged "PackageName" Text.Text
+
+
+type Version = Tagged.Tagged "Version" [Int.Int32]
+
+
 type Revision = Tagged.Tagged "Revision" Int.Int32
+
+
+type License = Tagged.Tagged "License" Text.Text
+
+
+type Category = Tagged.Tagged "Category" Text.Text
+
+
+type PackageId = Tagged.Tagged "PackageId" Int.Int32
+
+
+type CategoryId = Tagged.Tagged "CategoryId" Int.Int32
 
 
 data Repo = Repo
@@ -144,24 +163,21 @@ data Benchmark = Benchmark
 handlePackage :: Sql.Connection -> Package -> IO ()
 handlePackage connection package = do
   Printf.printf "%s\t%s\t%d\n"
-    (package |> packageName |> Cabal.unPackageName)
-    (package |> packageVersion |> Cabal.disp |> Pretty.render)
+    (package |> packageName |> Tagged.untag |> Text.unpack)
+    (package
+      |> packageVersion
+      |> Tagged.untag
+      |> map show
+      |> List.intercalate ".")
     (package |> packageRevision |> Tagged.untag)
 
-  let name = package |> packageName |> Cabal.unPackageName |> Text.pack
+  let name = packageName package
   runQuery connection insertPackageName name
 
-  let version = package
-        |> packageVersion
-        |> Cabal.versionBranch
-        |> map intToInt32
+  let version = packageVersion package
   runQuery connection insertVersion version
 
-  let license = package
-        |> packageLicense
-        |> Cabal.disp
-        |> Pretty.render
-        |> Text.pack
+  let license = packageLicense package
   runQuery connection insertLicense license
 
   let revision = packageRevision package
@@ -177,54 +193,55 @@ handlePackage connection package = do
 
   packageId <- runQuery connection selectPackageId (name, version, revision)
 
-  let categories = package |> packageCategories
-  Monad.forM_ categories (\ category -> do
-    runQuery connection insertCategory category
-    categoryId <- runQuery connection selectCategoryId category
-    runQuery connection insertCategoryPackage (categoryId, packageId))
+  package
+    |> packageCategories
+    |> mapM_ (\ category -> do
+      runQuery connection insertCategory category
+      categoryId <- runQuery connection selectCategoryId category
+      runQuery connection insertCategoryPackage (categoryId, packageId))
 
   -- TODO: More stuff.
 
 
-insertPackageName :: Sql.Query Text.Text ()
+insertPackageName :: Sql.Query PackageName ()
 insertPackageName = makeQuery
   [QQ.string|
     insert into package_names ( content )
     values ( $1 )
     on conflict do nothing
   |]
-  (Sql.Encode.value Sql.Encode.text)
+  (Sql.Encode.text |> Sql.Encode.value |> contraUntag)
   Sql.Decode.unit
 
 
-insertVersion :: Sql.Query [Int.Int32] ()
+insertVersion :: Sql.Query Version ()
 insertVersion = makeQuery
   [QQ.string|
     insert into versions ( content )
     values ( $1 )
     on conflict do nothing
   |]
-  (arrayOf Sql.Encode.int4)
+  (Sql.Encode.int4 |> arrayOf |> contraUntag)
   Sql.Decode.unit
 
 
-insertLicense :: Sql.Query Text.Text ()
+insertLicense :: Sql.Query License ()
 insertLicense = makeQuery
   [QQ.string|
     insert into licenses ( content )
     values ( $1 )
     on conflict do nothing
   |]
-  (Sql.Encode.value Sql.Encode.text)
+  (Sql.Encode.text |> Sql.Encode.value |> contraUntag)
   Sql.Decode.unit
 
 
 insertPackage
   :: Sql.Query
-    ( Text.Text
-    , [Int.Int32]
+    ( PackageName
+    , Version
     , Revision
-    , Text.Text
+    , License
     , Text.Text
     , Text.Text
     , Text.Text
@@ -251,19 +268,17 @@ insertPackage = makeQuery
     ) on conflict do nothing
   |]
   (Contravariant.contrazip7
-    (Sql.Encode.value Sql.Encode.text)
-    (arrayOf Sql.Encode.int4)
-    (Sql.Encode.int4
-      |> Sql.Encode.value
-      |> Contravariant.contramap Tagged.untag)
-    (Sql.Encode.value Sql.Encode.text)
+    (Sql.Encode.text |> Sql.Encode.value |> contraUntag)
+    (Sql.Encode.int4 |> arrayOf |> contraUntag)
+    (Sql.Encode.int4 |> Sql.Encode.value |> contraUntag)
+    (Sql.Encode.text |> Sql.Encode.value |> contraUntag)
     (Sql.Encode.value Sql.Encode.text)
     (Sql.Encode.value Sql.Encode.text)
     (Sql.Encode.value Sql.Encode.text))
   Sql.Decode.unit
 
 
-selectPackageId :: Sql.Query (Text.Text, [Int.Int32], Revision) Int.Int32
+selectPackageId :: Sql.Query (PackageName, Version, Revision) PackageId
 selectPackageId = makeQuery
   [QQ.string|
     select packages.id
@@ -277,37 +292,41 @@ selectPackageId = makeQuery
     and packages.revision = $3
   |]
   (Contravariant.contrazip3
-    (Sql.Encode.value Sql.Encode.text)
-    (arrayOf Sql.Encode.int4)
-    (Sql.Encode.int4
-      |> Sql.Encode.value
-      |> Contravariant.contramap Tagged.untag))
-  (Sql.Decode.int4 |> Sql.Decode.value |> Sql.Decode.singleRow)
+    (Sql.Encode.text |> Sql.Encode.value |> contraUntag)
+    (Sql.Encode.int4 |> arrayOf |> contraUntag)
+    (Sql.Encode.int4 |> Sql.Encode.value |> contraUntag))
+  (Sql.Decode.int4
+    |> Sql.Decode.value
+    |> Sql.Decode.singleRow
+    |> fmap Tagged.Tagged)
 
 
-insertCategory :: Sql.Query Text.Text ()
+insertCategory :: Sql.Query Category ()
 insertCategory = makeQuery
   [QQ.string|
     insert into categories ( content )
     values ( $1 )
     on conflict do nothing
   |]
-  (Sql.Encode.value Sql.Encode.text)
+  (Sql.Encode.text |> Sql.Encode.value |> contraUntag)
   Sql.Decode.unit
 
 
-selectCategoryId :: Sql.Query Text.Text Int.Int32
+selectCategoryId :: Sql.Query Category CategoryId
 selectCategoryId = makeQuery
   [QQ.string|
     select id
     from categories
     where content = $1
   |]
-  (Sql.Encode.value Sql.Encode.text)
-  (Sql.Decode.int4 |> Sql.Decode.value |> Sql.Decode.singleRow)
+  (Sql.Encode.text |> Sql.Encode.value |> contraUntag)
+  (Sql.Decode.int4
+    |> Sql.Decode.value
+    |> Sql.Decode.singleRow
+    |> fmap Tagged.Tagged)
 
 
-insertCategoryPackage :: Sql.Query (Int.Int32, Int.Int32) ()
+insertCategoryPackage :: Sql.Query (CategoryId, PackageId) ()
 insertCategoryPackage = makeQuery
   [QQ.string|
     insert into categories_packages ( category_id, package_id )
@@ -315,8 +334,8 @@ insertCategoryPackage = makeQuery
     on conflict do nothing
   |]
   (Contravariant.contrazip2
-    (Sql.Encode.value Sql.Encode.int4)
-    (Sql.Encode.value Sql.Encode.int4))
+    (Sql.Encode.int4 |> Sql.Encode.value |> contraUntag)
+    (Sql.Encode.int4 |> Sql.Encode.value |> contraUntag))
   Sql.Decode.unit
 
 
@@ -344,10 +363,16 @@ toPackage package = Package
     |> Cabal.packageDescription
     |> Cabal.package
     |> Cabal.pkgName
+    |> Cabal.unPackageName
+    |> Text.pack
+    |> Tagged.Tagged
   , packageVersion = package
     |> Cabal.packageDescription
     |> Cabal.package
     |> Cabal.pkgVersion
+    |> Cabal.versionBranch
+    |> map intToInt32
+    |> Tagged.Tagged
   , packageRevision = package
     |> Cabal.packageDescription
     |> Cabal.customFieldsPD
@@ -357,7 +382,13 @@ toPackage package = Package
     |> Maybe.fromMaybe 0
     |> intToInt32
     |> Tagged.Tagged
-  , packageLicense = package |> Cabal.packageDescription |> Cabal.license
+  , packageLicense = package
+    |> Cabal.packageDescription
+    |> Cabal.license
+    |> Cabal.disp
+    |> Pretty.render
+    |> Text.pack
+    |> Tagged.Tagged
   , packageSynopsis = package |> Cabal.packageDescription |> Cabal.synopsis
   , packageDescription = package
     |> Cabal.packageDescription
@@ -369,6 +400,7 @@ toPackage package = Package
     |> Text.splitOn (Text.singleton ',')
     |> map Text.strip
     |> filter (\ category -> category |> Text.null |> not)
+    |> map Tagged.Tagged
   , packageUrl = package |> Cabal.packageDescription |> Cabal.homepage
   , packageRepos = package
     |> Cabal.packageDescription
@@ -571,3 +603,7 @@ arrayOf x = x
   |> Sql.Encode.arrayDimension foldl
   |> Sql.Encode.array
   |> Sql.Encode.value
+
+
+contraUntag :: Contravariant.Contravariant f => f a -> f (Tagged.Tagged t a)
+contraUntag = Contravariant.contramap Tagged.untag
