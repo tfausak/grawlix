@@ -225,17 +225,67 @@ insertPackage connection package = do
     , package |> packageUrl |> Text.pack
     )
 
-  let categories = package |> packageCategories
-  Monad.forM_ categories (\ category -> runSql
+  packageId <- runSql
     connection
     [QQ.string|
-      insert into categories ( content )
-      values ( $1 )
-      on conflict do nothing
+      select packages.id
+      from packages
+      inner join package_names
+      on package_names.id = packages.package_name_id
+      inner join versions
+      on versions.id = packages.version_id
+      where package_names.content = $1
+      and versions.content = $2
+      and packages.revision = $3
     |]
-    (Sql.Encode.value Sql.Encode.text)
-    Sql.Decode.unit
-    category)
+    (Contravariant.contrazip3
+      (Sql.Encode.value Sql.Encode.text)
+      (arrayOf Sql.Encode.int4)
+      (Sql.Encode.value Sql.Encode.int4))
+    (Sql.Decode.int4 |> Sql.Decode.value |> Sql.Decode.singleRow)
+    ( name
+    , version
+    , revision
+    )
+
+  let categories = package |> packageCategories
+  Monad.forM_ categories (\ category -> do
+    runSql
+      connection
+      [QQ.string|
+        insert into categories ( content )
+        values ( $1 )
+        on conflict do nothing
+      |]
+      (Sql.Encode.value Sql.Encode.text)
+      Sql.Decode.unit
+      category
+
+    categoryId <- runSql
+      connection
+      [QQ.string|
+        select id
+        from categories
+        where content = $1
+      |]
+      (Sql.Encode.value Sql.Encode.text)
+      (Sql.Decode.int4 |> Sql.Decode.value |> Sql.Decode.singleRow)
+      category
+
+    runSql
+      connection
+      [QQ.string|
+        insert into categories_packages ( category_id, package_id )
+        values ( $1, $2 )
+        on conflict do nothing
+      |]
+      (Contravariant.contrazip2
+        (Sql.Encode.value Sql.Encode.int4)
+        (Sql.Encode.value Sql.Encode.int4))
+      Sql.Decode.unit
+      ( categoryId
+      , packageId
+      ))
 
   -- TODO: More stuff.
 
