@@ -85,7 +85,7 @@ main = do
     |> Maybe.mapMaybe lazyDecodeUtf8
     |> Maybe.mapMaybe parseDescription
     |> map toPackage
-    |> mapM_ (insertPackage connection)
+    |> mapM_ (handlePackage connection)
 
 
 data Package = Package
@@ -135,87 +135,31 @@ data Benchmark = Benchmark
   } deriving Show
 
 
-insertPackage :: Sql.Connection -> Package -> IO ()
-insertPackage connection package = do
+handlePackage :: Sql.Connection -> Package -> IO ()
+handlePackage connection package = do
   Printf.printf "%s\t%s\t%d\n"
     (package |> packageName |> Cabal.unPackageName)
     (package |> packageVersion |> Cabal.disp |> Pretty.render)
     (package |> packageRevision)
 
   let name = package |> packageName |> Cabal.unPackageName |> Text.pack
-  runSql
-    connection
-    [QQ.string|
-      insert into package_names ( content )
-      values ( $1 )
-      on conflict do nothing
-    |]
-    (Sql.Encode.value Sql.Encode.text)
-    Sql.Decode.unit
-    name
+  runQuery connection insertPackageName name
 
   let version = package
         |> packageVersion
         |> Cabal.versionBranch
         |> map intToInt32
-  runSql
-    connection
-    [QQ.string|
-      insert into versions ( content )
-      values ( $1 )
-      on conflict do nothing
-    |]
-    (arrayOf Sql.Encode.int4)
-    Sql.Decode.unit
-    version
+  runQuery connection insertVersion version
 
   let license = package
         |> packageLicense
         |> Cabal.disp
         |> Pretty.render
         |> Text.pack
-  runSql
-    connection
-    [QQ.string|
-      insert into licenses ( content )
-      values ( $1 )
-      on conflict do nothing
-    |]
-    (Sql.Encode.value Sql.Encode.text)
-    Sql.Decode.unit
-    license
+  runQuery connection insertLicense license
 
   let revision = package |> packageRevision |> intToInt32
-  runSql
-    connection
-    [QQ.string|
-      insert into packages (
-        package_name_id,
-        version_id,
-        revision,
-        license_id,
-        synopsis,
-        description,
-        url
-      ) values (
-        ( select id from package_names where content = $1 ),
-        ( select id from versions where content = $2 ),
-        $3,
-        ( select id from licenses where content = $4 ),
-        $5,
-        $6,
-        $7
-      ) on conflict do nothing
-    |]
-    (Contravariant.contrazip7
-      (Sql.Encode.value Sql.Encode.text)
-      (arrayOf Sql.Encode.int4)
-      (Sql.Encode.value Sql.Encode.int4)
-      (Sql.Encode.value Sql.Encode.text)
-      (Sql.Encode.value Sql.Encode.text)
-      (Sql.Encode.value Sql.Encode.text)
-      (Sql.Encode.value Sql.Encode.text))
-    Sql.Decode.unit
+  runQuery connection insertPackage
     ( name
     , version
     , revision
@@ -225,82 +169,158 @@ insertPackage connection package = do
     , package |> packageUrl |> Text.pack
     )
 
-  packageId <- runSql
-    connection
-    [QQ.string|
-      select packages.id
-      from packages
-      inner join package_names
-      on package_names.id = packages.package_name_id
-      inner join versions
-      on versions.id = packages.version_id
-      where package_names.content = $1
-      and versions.content = $2
-      and packages.revision = $3
-    |]
-    (Contravariant.contrazip3
-      (Sql.Encode.value Sql.Encode.text)
-      (arrayOf Sql.Encode.int4)
-      (Sql.Encode.value Sql.Encode.int4))
-    (Sql.Decode.int4 |> Sql.Decode.value |> Sql.Decode.singleRow)
-    ( name
-    , version
-    , revision
-    )
+  packageId <- runQuery connection selectPackageId (name, version, revision)
 
   let categories = package |> packageCategories
   Monad.forM_ categories (\ category -> do
-    runSql
-      connection
-      [QQ.string|
-        insert into categories ( content )
-        values ( $1 )
-        on conflict do nothing
-      |]
-      (Sql.Encode.value Sql.Encode.text)
-      Sql.Decode.unit
-      category
-
-    categoryId <- runSql
-      connection
-      [QQ.string|
-        select id
-        from categories
-        where content = $1
-      |]
-      (Sql.Encode.value Sql.Encode.text)
-      (Sql.Decode.int4 |> Sql.Decode.value |> Sql.Decode.singleRow)
-      category
-
-    runSql
-      connection
-      [QQ.string|
-        insert into categories_packages ( category_id, package_id )
-        values ( $1, $2 )
-        on conflict do nothing
-      |]
-      (Contravariant.contrazip2
-        (Sql.Encode.value Sql.Encode.int4)
-        (Sql.Encode.value Sql.Encode.int4))
-      Sql.Decode.unit
-      ( categoryId
-      , packageId
-      ))
+    runQuery connection insertCategory category
+    categoryId <- runQuery connection selectCategoryId category
+    runQuery connection insertCategoryPackage (categoryId, packageId))
 
   -- TODO: More stuff.
 
 
-runSql
-  :: Sql.Connection
-  -> String
-  -> Sql.Encode.Params a
-  -> Sql.Decode.Result b
-  -> a
-  -> IO b
-runSql connection rawSql encoder decoder params = do
-  let sql = rawSql |> Text.pack |> Text.encodeUtf8
-  let prepare = True
-  let query = Sql.statement sql encoder decoder prepare
+insertPackageName :: Sql.Query Text.Text ()
+insertPackageName = makeQuery
+  [QQ.string|
+    insert into package_names ( content )
+    values ( $1 )
+    on conflict do nothing
+  |]
+  (Sql.Encode.value Sql.Encode.text)
+  Sql.Decode.unit
+
+
+insertVersion :: Sql.Query [Int.Int32] ()
+insertVersion = makeQuery
+  [QQ.string|
+    insert into versions ( content )
+    values ( $1 )
+    on conflict do nothing
+  |]
+  (arrayOf Sql.Encode.int4)
+  Sql.Decode.unit
+
+
+insertLicense :: Sql.Query Text.Text ()
+insertLicense = makeQuery
+  [QQ.string|
+    insert into licenses ( content )
+    values ( $1 )
+    on conflict do nothing
+  |]
+  (Sql.Encode.value Sql.Encode.text)
+  Sql.Decode.unit
+
+
+insertPackage
+  :: Sql.Query
+    ( Text.Text
+    , [Int.Int32]
+    , Int.Int32
+    , Text.Text
+    , Text.Text
+    , Text.Text
+    , Text.Text
+    )
+    ()
+insertPackage = makeQuery
+  [QQ.string|
+    insert into packages (
+      package_name_id,
+      version_id,
+      revision,
+      license_id,
+      synopsis,
+      description,
+      url
+    ) values (
+      ( select id from package_names where content = $1 ),
+      ( select id from versions where content = $2 ),
+      $3,
+      ( select id from licenses where content = $4 ),
+      $5,
+      $6,
+      $7
+    ) on conflict do nothing
+  |]
+  (Contravariant.contrazip7
+    (Sql.Encode.value Sql.Encode.text)
+    (arrayOf Sql.Encode.int4)
+    (Sql.Encode.value Sql.Encode.int4)
+    (Sql.Encode.value Sql.Encode.text)
+    (Sql.Encode.value Sql.Encode.text)
+    (Sql.Encode.value Sql.Encode.text)
+    (Sql.Encode.value Sql.Encode.text))
+  Sql.Decode.unit
+
+
+selectPackageId :: Sql.Query (Text.Text, [Int.Int32], Int.Int32) Int.Int32
+selectPackageId = makeQuery
+  [QQ.string|
+    select packages.id
+    from packages
+    inner join package_names
+    on package_names.id = packages.package_name_id
+    inner join versions
+    on versions.id = packages.version_id
+    where package_names.content = $1
+    and versions.content = $2
+    and packages.revision = $3
+  |]
+  (Contravariant.contrazip3
+    (Sql.Encode.value Sql.Encode.text)
+    (arrayOf Sql.Encode.int4)
+    (Sql.Encode.value Sql.Encode.int4))
+  (Sql.Decode.int4 |> Sql.Decode.value |> Sql.Decode.singleRow)
+
+
+insertCategory :: Sql.Query Text.Text ()
+insertCategory = makeQuery
+  [QQ.string|
+    insert into categories ( content )
+    values ( $1 )
+    on conflict do nothing
+  |]
+  (Sql.Encode.value Sql.Encode.text)
+  Sql.Decode.unit
+
+
+selectCategoryId :: Sql.Query Text.Text Int.Int32
+selectCategoryId = makeQuery
+  [QQ.string|
+    select id
+    from categories
+    where content = $1
+  |]
+  (Sql.Encode.value Sql.Encode.text)
+  (Sql.Decode.int4 |> Sql.Decode.value |> Sql.Decode.singleRow)
+
+
+insertCategoryPackage :: Sql.Query (Int.Int32, Int.Int32) ()
+insertCategoryPackage = makeQuery
+  [QQ.string|
+    insert into categories_packages ( category_id, package_id )
+    values ( $1, $2 )
+    on conflict do nothing
+  |]
+  (Contravariant.contrazip2
+    (Sql.Encode.value Sql.Encode.int4)
+    (Sql.Encode.value Sql.Encode.int4))
+  Sql.Decode.unit
+
+
+makeQuery
+  :: String -> Sql.Encode.Params a -> Sql.Decode.Result b -> Sql.Query a b
+makeQuery rawSql encoder decoder =
+  let
+    sql = rawSql |> Text.pack |> Text.encodeUtf8
+    prepare = True
+  in Sql.statement sql encoder decoder prepare
+
+
+runQuery :: Sql.Connection -> Sql.Query a b -> a -> IO b
+runQuery connection query params = do
   let session = Sql.query params query
   result <- Sql.run session connection
   case result of
