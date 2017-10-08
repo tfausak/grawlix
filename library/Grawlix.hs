@@ -244,9 +244,7 @@ insertDependency = makeQuery
     values ( $1, $2 )
     on conflict do nothing
   |]
-  (Contravariant.contrazip2
-    (Sql.Encode.int4 |> Sql.Encode.value |> contraUntag)
-    (Sql.Encode.int4 |> Sql.Encode.value |> contraUntag))
+  (Contravariant.contrazip2 idParam idParam)
   Sql.Decode.unit
 
 
@@ -257,11 +255,8 @@ selectConstraintId = makeQuery
     from constraints
     where content = $1
   |]
-  (Sql.Encode.text |> Sql.Encode.value |> contraUntag)
-  (Sql.Decode.int4
-    |> Sql.Decode.value
-    |> Sql.Decode.singleRow
-    |> fmap Tagged.Tagged)
+  taggedTextParam
+  idResult
 
 
 selectPackageNameId :: Sql.Query PackageName PackageNameId
@@ -271,11 +266,8 @@ selectPackageNameId = makeQuery
     from package_names
     where content = $1
   |]
-  (Sql.Encode.text |> Sql.Encode.value |> contraUntag)
-  (Sql.Decode.int4
-    |> Sql.Decode.value
-    |> Sql.Decode.singleRow
-    |> fmap Tagged.Tagged)
+  taggedTextParam
+  idResult
 
 
 insertConstraint :: Sql.Query Constraint ()
@@ -285,7 +277,7 @@ insertConstraint = makeQuery
     values ( $1 )
     on conflict do nothing
   |]
-  (Sql.Encode.text |> Sql.Encode.value |> contraUntag)
+  taggedTextParam
   Sql.Decode.unit
 
 
@@ -307,7 +299,7 @@ insertPackageName = makeQuery
     values ( $1 )
     on conflict do nothing
   |]
-  (Sql.Encode.text |> Sql.Encode.value |> contraUntag)
+  taggedTextParam
   Sql.Decode.unit
 
 
@@ -329,7 +321,7 @@ insertLicense = makeQuery
     values ( $1 )
     on conflict do nothing
   |]
-  (Sql.Encode.text |> Sql.Encode.value |> contraUntag)
+  taggedTextParam
   Sql.Decode.unit
 
 
@@ -365,13 +357,13 @@ insertPackage = makeQuery
     ) on conflict do nothing
   |]
   (Contravariant.contrazip7
-    (Sql.Encode.text |> Sql.Encode.value |> contraUntag)
+    taggedTextParam
     (Sql.Encode.int4 |> arrayOf |> contraUntag)
-    (Sql.Encode.int4 |> Sql.Encode.value |> contraUntag)
-    (Sql.Encode.text |> Sql.Encode.value |> contraUntag)
-    (Sql.Encode.value Sql.Encode.text)
-    (Sql.Encode.value Sql.Encode.text)
-    (Sql.Encode.value Sql.Encode.text))
+    idParam
+    taggedTextParam
+    textParam
+    textParam
+    textParam)
   Sql.Decode.unit
 
 
@@ -389,13 +381,10 @@ selectPackageId = makeQuery
     and packages.revision = $3
   |]
   (Contravariant.contrazip3
-    (Sql.Encode.text |> Sql.Encode.value |> contraUntag)
+    taggedTextParam
     (Sql.Encode.int4 |> arrayOf |> contraUntag)
-    (Sql.Encode.int4 |> Sql.Encode.value |> contraUntag))
-  (Sql.Decode.int4
-    |> Sql.Decode.value
-    |> Sql.Decode.singleRow
-    |> fmap Tagged.Tagged)
+    idParam)
+  idResult
 
 
 insertCategory :: Sql.Query Category ()
@@ -405,7 +394,7 @@ insertCategory = makeQuery
     values ( $1 )
     on conflict do nothing
   |]
-  (Sql.Encode.text |> Sql.Encode.value |> contraUntag)
+  taggedTextParam
   Sql.Decode.unit
 
 
@@ -416,11 +405,8 @@ selectCategoryId = makeQuery
     from categories
     where content = $1
   |]
-  (Sql.Encode.text |> Sql.Encode.value |> contraUntag)
-  (Sql.Decode.int4
-    |> Sql.Decode.value
-    |> Sql.Decode.singleRow
-    |> fmap Tagged.Tagged)
+  taggedTextParam
+  idResult
 
 
 insertCategoryPackage :: Sql.Query (CategoryId, PackageId) ()
@@ -430,9 +416,7 @@ insertCategoryPackage = makeQuery
     values ( $1, $2 )
     on conflict do nothing
   |]
-  (Contravariant.contrazip2
-    (Sql.Encode.int4 |> Sql.Encode.value |> contraUntag)
-    (Sql.Encode.int4 |> Sql.Encode.value |> contraUntag))
+  (Contravariant.contrazip2 idParam idParam)
   Sql.Decode.unit
 
 
@@ -758,3 +742,22 @@ getConnection = do
   case result of
     Left problem -> problem |> show |> fail
     Right connection -> pure connection
+
+
+idParam :: Sql.Encode.Params (Tagged.Tagged t Int.Int32)
+idParam = Sql.Encode.int4 |> Sql.Encode.value |> contraUntag
+
+
+idResult :: Sql.Decode.Result (Tagged.Tagged t Int.Int32)
+idResult = Sql.Decode.int4
+  |> Sql.Decode.value
+  |> Sql.Decode.singleRow
+  |> fmap Tagged.Tagged
+
+
+textParam :: Sql.Encode.Params Text.Text
+textParam = Sql.Encode.value Sql.Encode.text
+
+
+taggedTextParam :: Sql.Encode.Params (Tagged.Tagged t Text.Text)
+taggedTextParam = contraUntag textParam
