@@ -193,11 +193,23 @@ handlePackage connection package = do
 
   package
     |> packageLibraries
-    |> concatMap libraryModules
-    |> mapM_ (\ moduleName -> do
-      runQuery connection insertModuleName moduleName
-      -- TODO: Connect module names to libraries.
-      pure ())
+    |> mapM_ (\ library -> do
+      -- TODO: Actually insert libraries.
+
+      library
+        |> libraryModules
+        |> mapM_ (\ moduleName -> do
+          runQuery connection insertModuleName moduleName
+          {- TODO: Connect module names to libraries. -})
+
+      library
+        |> libraryDependencies
+        |> mapM_ (\ dependency -> do
+          dependency
+            |> dependencyConstraint
+            |> runQuery connection insertConstraint
+          {- TODO: Actually insert dependencies. -}
+          {- TODO: Connect dependencies to libraries. -}))
 
   -- TODO: More stuff.
 
@@ -211,6 +223,17 @@ logPackage package = Printf.printf "%s\t%s\t%d\n"
     |> map show
     |> List.intercalate ".")
   (package |> packageRevision |> Tagged.untag)
+
+
+insertConstraint :: Sql.Query Constraint ()
+insertConstraint = makeQuery
+  [QQ.string|
+    insert into constraints ( content )
+    values ( $1 )
+    on conflict do nothing
+  |]
+  (Sql.Encode.text |> Sql.Encode.value |> contraUntag)
+  Sql.Decode.unit
 
 
 insertModuleName :: Sql.Query ModuleName ()
