@@ -11,7 +11,6 @@ import qualified Codec.Archive.Tar as Tar
 import qualified Codec.Compression.GZip as Gzip
 import qualified Contravariant.Extras as Contravariant
 import qualified Control.Exception as Exception
-import qualified Control.Monad as Monad
 import qualified Data.ByteString as Bytes
 import qualified Data.ByteString.Base16 as Base16
 import qualified Data.ByteString.Base64 as Base64
@@ -84,10 +83,10 @@ data Package = Package
   , packageVersion :: Version
   , packageRevision :: Revision
   , packageLicense :: License
-  , packageSynopsis :: String
-  , packageDescription :: String
+  , packageSynopsis :: Text.Text
+  , packageDescription :: Text.Text
   , packageCategories :: [Category]
-  , packageUrl :: String
+  , packageUrl :: Text.Text
   , packageRepos :: [Repo]
   , packageLibraries :: [Library]
   , packageExecutables :: [Executable]
@@ -121,9 +120,19 @@ type PackageNameId = Tagged.Tagged "PackageNameId" Int.Int32
 
 
 data Repo = Repo
-  { repoType :: Cabal.RepoType
-  , repoUrl :: String
+  { repoKind :: RepoKind
+  , repoType :: RepoType
+  , repoUrl :: Text.Text
   } deriving Show
+
+
+type RepoId = Tagged.Tagged "RepoId" Int.Int32
+
+
+type RepoKind = Tagged.Tagged "RepoKind" Text.Text
+
+
+type RepoType = Tagged.Tagged "RepoType" Text.Text
 
 
 data Library = Library
@@ -148,19 +157,19 @@ type ConstraintId = Tagged.Tagged "ConstraintId" Int.Int32
 
 
 data Executable = Executable
-  { executableName :: String
+  { executableName :: Text.Text
   , executableDependencies :: [Dependency]
   } deriving Show
 
 
 data Test = Test
-  { testName :: String
+  { testName :: Text.Text
   , testDependencies :: [Dependency]
   } deriving Show
 
 
 data Benchmark = Benchmark
-  { benchmarkName :: String
+  { benchmarkName :: Text.Text
   , benchmarkDependencies :: [Dependency]
   } deriving Show
 
@@ -184,44 +193,43 @@ handlePackage connection package = do
     , version
     , revision
     , license
-    , package |> packageSynopsis |> Text.pack
-    , package |> packageDescription |> Text.pack
-    , package |> packageUrl |> Text.pack
+    , packageSynopsis package
+    , packageDescription package
+    , packageUrl package
     )
 
   packageId <- runQuery connection selectPackageId (name, version, revision)
 
-  package
-    |> packageCategories
-    |> mapM_ (\ category -> do
-      runQuery connection insertCategory category
-      categoryId <- runQuery connection selectCategoryId category
-      runQuery connection insertCategoryPackage (categoryId, packageId))
+  package |> packageCategories |> mapM_ (\ category -> do
+    runQuery connection insertCategory category
+    categoryId <- runQuery connection selectCategoryId category
+    runQuery connection insertCategoryPackage (categoryId, packageId))
 
-  package
-    |> packageLibraries
-    |> mapM_ (\ library -> do
-      -- TODO: Actually insert libraries.
+  package |> packageRepos |> mapM_ (\ repo -> do
+    runQuery connection insertRepo repo
+    repoId <- runQuery connection selectRepoId repo
+    runQuery connection insertPackageRepo (packageId, repoId))
 
-      library
-        |> libraryModules
-        |> mapM_ (\ moduleName -> do
-          runQuery connection insertModuleName moduleName
-          {- TODO: Connect module names to libraries. -})
+  package |> packageLibraries |> mapM_ (\ library -> do
+    -- TODO: Actually insert libraries.
 
-      library
-        |> libraryDependencies
-        |> mapM_ (\ dependency -> do
-          let constraint = dependencyConstraint dependency
-          runQuery connection insertConstraint constraint
-          constraintId <- runQuery connection selectConstraintId constraint
+    library
+      |> libraryModules
+      |> mapM_ (\ moduleName -> do
+        runQuery connection insertModuleName moduleName
+        {- TODO: Connect module names to libraries. -})
 
-          let packageName = dependencyPackage dependency
-          runQuery connection insertPackageName packageName
-          packageNameId <- runQuery connection selectPackageNameId packageName
+    library |> libraryDependencies |> mapM_ (\ dependency -> do
+      let constraint = dependencyConstraint dependency
+      runQuery connection insertConstraint constraint
+      constraintId <- runQuery connection selectConstraintId constraint
 
-          runQuery connection insertDependency (constraintId, packageNameId)
-          {- TODO: Connect dependencies to libraries. -}))
+      let packageName = dependencyPackage dependency
+      runQuery connection insertPackageName packageName
+      packageNameId <- runQuery connection selectPackageNameId packageName
+
+      runQuery connection insertDependency (constraintId, packageNameId)
+      {- TODO: Connect dependencies to libraries. -}))
 
   -- TODO: More stuff.
 
@@ -235,6 +243,41 @@ logPackage package = Printf.printf "%s\t%s\t%d\n"
     |> map show
     |> List.intercalate ".")
   (package |> packageRevision |> Tagged.untag)
+
+
+insertPackageRepo :: Sql.Query (PackageId, RepoId) ()
+insertPackageRepo = makeQuery
+  [QQ.string|
+    insert into packages_repos ( package_id, repo_id )
+    values ( $1, $2 )
+    on conflict do nothing
+  |]
+  (Contravariant.contrazip2 idParam idParam)
+  Sql.Decode.unit
+
+
+selectRepoId :: Sql.Query Repo RepoId
+selectRepoId = makeQuery
+  [QQ.string|
+    select id
+    from repos
+    where kind = $1
+    and type = $2
+    and url = $3
+  |]
+  repoParam
+  idResult
+
+
+insertRepo :: Sql.Query Repo ()
+insertRepo = makeQuery
+  [QQ.string|
+    insert into repos ( kind, type, url )
+    values ( $1, $2, $3 )
+    on conflict do nothing
+  |]
+  repoParam
+  Sql.Decode.unit
 
 
 insertDependency :: Sql.Query (ConstraintId, PackageNameId) ()
@@ -470,10 +513,14 @@ toPackage package = Package
     |> Pretty.render
     |> Text.pack
     |> Tagged.Tagged
-  , packageSynopsis = package |> Cabal.packageDescription |> Cabal.synopsis
+  , packageSynopsis = package
+    |> Cabal.packageDescription
+    |> Cabal.synopsis
+    |> Text.pack
   , packageDescription = package
     |> Cabal.packageDescription
     |> Cabal.description
+    |> Text.pack
   , packageCategories = package
     |> Cabal.packageDescription
     |> Cabal.category
@@ -482,7 +529,10 @@ toPackage package = Package
     |> map Text.strip
     |> filter (\ category -> category |> Text.null |> not)
     |> map Tagged.Tagged
-  , packageUrl = package |> Cabal.packageDescription |> Cabal.homepage
+  , packageUrl = package
+    |> Cabal.packageDescription
+    |> Cabal.homepage
+    |> Text.pack
   , packageRepos = package
     |> Cabal.packageDescription
     |> Cabal.sourceRepos
@@ -526,10 +576,21 @@ toPackage package = Package
 
 toRepo :: Cabal.SourceRepo -> Maybe Repo
 toRepo repo = do
-  Monad.guard (Cabal.repoKind repo == Cabal.RepoHead)
-  repoType <- Cabal.repoType repo
-  repoUrl <- Cabal.repoLocation repo
-  pure Repo { repoType, repoUrl }
+  let repoKind = repo
+        |> Cabal.repoKind
+        |> Cabal.disp
+        |> Pretty.render
+        |> Text.pack
+        |> Tagged.Tagged
+  rawRepoType <- Cabal.repoType repo
+  let repoType = rawRepoType
+        |> Cabal.disp
+        |> Pretty.render
+        |> Text.pack
+        |> Tagged.Tagged
+  rawRepoUrl <- Cabal.repoLocation repo
+  let repoUrl = rawRepoUrl |> Text.pack
+  pure Repo { repoKind, repoType, repoUrl }
 
 
 toLibrary :: Cabal.Library -> Library
@@ -564,7 +625,7 @@ toDependency (Cabal.Dependency packageName versionRange) = Dependency
 
 toExecutable :: Cabal.Executable -> Executable
 toExecutable executable = Executable
-  { executableName = executable |> Cabal.exeName
+  { executableName = executable |> Cabal.exeName |> Text.pack
   , executableDependencies = executable
     |> Cabal.buildInfo
     |> Cabal.targetBuildDepends
@@ -574,7 +635,7 @@ toExecutable executable = Executable
 
 toTest :: Cabal.TestSuite -> Test
 toTest test = Test
-  { testName = test |> Cabal.testName
+  { testName = test |> Cabal.testName |> Text.pack
   , testDependencies = test
     |> Cabal.testBuildInfo
     |> Cabal.targetBuildDepends
@@ -584,7 +645,7 @@ toTest test = Test
 
 toBenchmark :: Cabal.Benchmark -> Benchmark
 toBenchmark benchmark = Benchmark
-  { benchmarkName = benchmark |> Cabal.benchmarkName
+  { benchmarkName = benchmark |> Cabal.benchmarkName |> Text.pack
   , benchmarkDependencies = benchmark
     |> Cabal.benchmarkBuildInfo
     |> Cabal.targetBuildDepends
@@ -761,3 +822,11 @@ textParam = Sql.Encode.value Sql.Encode.text
 
 taggedTextParam :: Sql.Encode.Params (Tagged.Tagged t Text.Text)
 taggedTextParam = contraUntag textParam
+
+
+repoParam :: Sql.Encode.Params Repo
+repoParam = mconcat
+  [ Contravariant.contramap repoKind taggedTextParam
+  , Contravariant.contramap repoType taggedTextParam
+  , Contravariant.contramap repoUrl textParam
+  ]
