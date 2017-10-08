@@ -124,28 +124,37 @@ data Repo = Repo
 
 data Library = Library
   { libraryModules :: [ModuleName]
-  , libraryDependencies :: [Cabal.Dependency]
+  , libraryDependencies :: [Dependency]
   } deriving Show
 
 
 type ModuleName = Tagged.Tagged "ModuleName" [Text.Text]
 
 
+data Dependency = Dependency
+  { dependencyPackage :: PackageName
+  , dependencyConstraint :: Constraint
+  } deriving Show
+
+
+type Constraint = Tagged.Tagged "Constraint" Text.Text
+
+
 data Executable = Executable
   { executableName :: String
-  , executableDependencies :: [Cabal.Dependency]
+  , executableDependencies :: [Dependency]
   } deriving Show
 
 
 data Test = Test
   { testName :: String
-  , testDependencies :: [Cabal.Dependency]
+  , testDependencies :: [Dependency]
   } deriving Show
 
 
 data Benchmark = Benchmark
   { benchmarkName :: String
-  , benchmarkDependencies :: [Cabal.Dependency]
+  , benchmarkDependencies :: [Dependency]
   } deriving Show
 
 
@@ -474,6 +483,22 @@ toLibrary library = Library
   , libraryDependencies = library
     |> Cabal.libBuildInfo
     |> Cabal.targetBuildDepends
+    |> map toDependency
+  }
+
+
+toDependency :: Cabal.Dependency -> Dependency
+toDependency (Cabal.Dependency packageName versionRange) = Dependency
+  { dependencyPackage = packageName
+    |> Cabal.unPackageName
+    |> Text.pack
+    |> Tagged.Tagged
+  , dependencyConstraint = versionRange
+    |> Cabal.simplifyVersionRange
+    |> Cabal.disp
+    |> Pretty.render
+    |> Text.pack
+    |> Tagged.Tagged
   }
 
 
@@ -483,13 +508,17 @@ toExecutable executable = Executable
   , executableDependencies = executable
     |> Cabal.buildInfo
     |> Cabal.targetBuildDepends
+    |> map toDependency
   }
 
 
 toTest :: Cabal.TestSuite -> Test
 toTest test = Test
   { testName = test |> Cabal.testName
-  , testDependencies = test |> Cabal.testBuildInfo |> Cabal.targetBuildDepends
+  , testDependencies = test
+    |> Cabal.testBuildInfo
+    |> Cabal.targetBuildDepends
+    |> map toDependency
   }
 
 
@@ -499,6 +528,7 @@ toBenchmark benchmark = Benchmark
   , benchmarkDependencies = benchmark
     |> Cabal.benchmarkBuildInfo
     |> Cabal.targetBuildDepends
+    |> map toDependency
   }
 
 
