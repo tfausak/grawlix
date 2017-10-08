@@ -47,6 +47,7 @@ import qualified QQ
 import qualified System.Directory as Directory
 import qualified System.Environment as Environment
 import qualified System.FilePath as Path
+import qualified System.IO as IO
 import qualified Text.PrettyPrint as Pretty
 import qualified Text.Printf as Printf
 import qualified Text.Read as Read
@@ -116,6 +117,9 @@ type PackageId = Tagged.Tagged "PackageId" Int.Int32
 type CategoryId = Tagged.Tagged "CategoryId" Int.Int32
 
 
+type PackageNameId = Tagged.Tagged "PackageNameId" Int.Int32
+
+
 data Repo = Repo
   { repoType :: Cabal.RepoType
   , repoUrl :: String
@@ -138,6 +142,9 @@ data Dependency = Dependency
 
 
 type Constraint = Tagged.Tagged "Constraint" Text.Text
+
+
+type ConstraintId = Tagged.Tagged "ConstraintId" Int.Int32
 
 
 data Executable = Executable
@@ -205,10 +212,15 @@ handlePackage connection package = do
       library
         |> libraryDependencies
         |> mapM_ (\ dependency -> do
-          dependency
-            |> dependencyConstraint
-            |> runQuery connection insertConstraint
-          {- TODO: Actually insert dependencies. -}
+          let constraint = dependencyConstraint dependency
+          runQuery connection insertConstraint constraint
+          constraintId <- runQuery connection selectConstraintId constraint
+
+          let packageName = dependencyPackage dependency
+          runQuery connection insertPackageName packageName
+          packageNameId <- runQuery connection selectPackageNameId packageName
+
+          runQuery connection insertDependency (constraintId, packageNameId)
           {- TODO: Connect dependencies to libraries. -}))
 
   -- TODO: More stuff.
@@ -223,6 +235,47 @@ logPackage package = Printf.printf "%s\t%s\t%d\n"
     |> map show
     |> List.intercalate ".")
   (package |> packageRevision |> Tagged.untag)
+
+
+insertDependency :: Sql.Query (ConstraintId, PackageNameId) ()
+insertDependency = makeQuery
+  [QQ.string|
+    insert into dependencies ( constraint_id, package_name_id )
+    values ( $1, $2 )
+    on conflict do nothing
+  |]
+  (Contravariant.contrazip2
+    (Sql.Encode.int4 |> Sql.Encode.value |> contraUntag)
+    (Sql.Encode.int4 |> Sql.Encode.value |> contraUntag))
+  Sql.Decode.unit
+
+
+selectConstraintId :: Sql.Query Constraint ConstraintId
+selectConstraintId = makeQuery
+  [QQ.string|
+    select id
+    from constraints
+    where content = $1
+  |]
+  (Sql.Encode.text |> Sql.Encode.value |> contraUntag)
+  (Sql.Decode.int4
+    |> Sql.Decode.value
+    |> Sql.Decode.singleRow
+    |> fmap Tagged.Tagged)
+
+
+selectPackageNameId :: Sql.Query PackageName PackageNameId
+selectPackageNameId = makeQuery
+  [QQ.string|
+    select id
+    from package_names
+    where content = $1
+  |]
+  (Sql.Encode.text |> Sql.Encode.value |> contraUntag)
+  (Sql.Decode.int4
+    |> Sql.Decode.value
+    |> Sql.Decode.singleRow
+    |> fmap Tagged.Tagged)
 
 
 insertConstraint :: Sql.Query Constraint ()
@@ -611,7 +664,7 @@ handleCacheMiss
   -> Exception.IOException
   -> IO LazyBytes.ByteString
 handleCacheMiss miss path exception = do
-  print exception
+  IO.hPrint IO.stderr exception
   contents <- miss
   Directory.createDirectoryIfMissing True cacheDirectory
   LazyBytes.writeFile path contents
