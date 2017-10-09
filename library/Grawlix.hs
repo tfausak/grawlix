@@ -132,7 +132,13 @@ type RepoId = Tagged.Tagged "RepoId" Int.Int32
 type RepoKind = Tagged.Tagged "RepoKind" Text.Text
 
 
+type RepoKindId = Tagged.Tagged "RepoKindId" Int.Int32
+
+
 type RepoType = Tagged.Tagged "RepoType" Text.Text
+
+
+type RepoTypeId = Tagged.Tagged "RepoTypeId" Int.Int32
 
 
 data Library = Library
@@ -206,8 +212,17 @@ handlePackage connection package = do
     runQuery connection insertCategoryPackage (categoryId, packageId))
 
   package |> packageRepos |> mapM_ (\ repo -> do
-    runQuery connection insertRepo repo
-    repoId <- runQuery connection selectRepoId repo
+    let kind = repoKind repo
+    runQuery connection insertRepoKind kind
+    kindId <- runQuery connection selectRepoKindId kind
+
+    let type_ = repoType repo
+    runQuery connection insertRepoType type_
+    typeId <- runQuery connection selectRepoTypeId type_
+
+    let url = repoUrl repo
+    runQuery connection insertRepo (kindId, typeId, url)
+    repoId <- runQuery connection selectRepoId (kindId, typeId, url)
     runQuery connection insertPackageRepo (packageId, repoId))
 
   package |> packageLibraries |> mapM_ (\ library -> do
@@ -245,6 +260,50 @@ logPackage package = Printf.printf "%s\t%s\t%d\n"
   (package |> packageRevision |> Tagged.untag)
 
 
+selectRepoTypeId :: Sql.Query RepoType RepoTypeId
+selectRepoTypeId = makeQuery
+  [QQ.string|
+    select id
+    from repo_types
+    where content = $1
+  |]
+  taggedTextParam
+  idResult
+
+
+insertRepoType :: Sql.Query RepoType ()
+insertRepoType = makeQuery
+  [QQ.string|
+    insert into repo_types ( content )
+    values ( $1 )
+    on conflict do nothing
+  |]
+  taggedTextParam
+  Sql.Decode.unit
+
+
+selectRepoKindId :: Sql.Query RepoKind RepoKindId
+selectRepoKindId = makeQuery
+  [QQ.string|
+    select id
+    from repo_kinds
+    where content = $1
+  |]
+  taggedTextParam
+  idResult
+
+
+insertRepoKind :: Sql.Query RepoKind ()
+insertRepoKind = makeQuery
+  [QQ.string|
+    insert into repo_kinds ( content )
+    values ( $1 )
+    on conflict do nothing
+  |]
+  taggedTextParam
+  Sql.Decode.unit
+
+
 insertPackageRepo :: Sql.Query (PackageId, RepoId) ()
 insertPackageRepo = makeQuery
   [QQ.string|
@@ -256,27 +315,27 @@ insertPackageRepo = makeQuery
   Sql.Decode.unit
 
 
-selectRepoId :: Sql.Query Repo RepoId
+selectRepoId :: Sql.Query (RepoKindId, RepoTypeId, Text.Text) RepoId
 selectRepoId = makeQuery
   [QQ.string|
     select id
     from repos
-    where kind = $1
-    and type = $2
+    where repo_kind_id = $1
+    and repo_type_id = $2
     and url = $3
   |]
-  repoParam
+  (Contravariant.contrazip3 idParam idParam textParam)
   idResult
 
 
-insertRepo :: Sql.Query Repo ()
+insertRepo :: Sql.Query (RepoKindId, RepoTypeId, Text.Text) ()
 insertRepo = makeQuery
   [QQ.string|
-    insert into repos ( kind, type, url )
+    insert into repos ( repo_kind_id, repo_type_id, url )
     values ( $1, $2, $3 )
     on conflict do nothing
   |]
-  repoParam
+  (Contravariant.contrazip3 idParam idParam textParam)
   Sql.Decode.unit
 
 
@@ -822,11 +881,3 @@ textParam = Sql.Encode.value Sql.Encode.text
 
 taggedTextParam :: Sql.Encode.Params (Tagged.Tagged t Text.Text)
 taggedTextParam = contraUntag textParam
-
-
-repoParam :: Sql.Encode.Params Repo
-repoParam = mconcat
-  [ Contravariant.contramap repoKind taggedTextParam
-  , Contravariant.contramap repoType taggedTextParam
-  , Contravariant.contramap repoUrl textParam
-  ]
