@@ -95,50 +95,11 @@ data Package = Package
   } deriving Show
 
 
-type PackageName = Tagged.Tagged "PackageName" Text.Text
-
-
-type Version = Tagged.Tagged "Version" [Int.Int32]
-
-
-type Revision = Tagged.Tagged "Revision" Int.Int32
-
-
-type License = Tagged.Tagged "License" Text.Text
-
-
-type Category = Tagged.Tagged "Category" Text.Text
-
-
-type PackageId = Tagged.Tagged "PackageId" Int.Int32
-
-
-type CategoryId = Tagged.Tagged "CategoryId" Int.Int32
-
-
-type PackageNameId = Tagged.Tagged "PackageNameId" Int.Int32
-
-
 data Repo = Repo
   { repoKind :: RepoKind
   , repoType :: RepoType
   , repoUrl :: Text.Text
   } deriving Show
-
-
-type RepoId = Tagged.Tagged "RepoId" Int.Int32
-
-
-type RepoKind = Tagged.Tagged "RepoKind" Text.Text
-
-
-type RepoKindId = Tagged.Tagged "RepoKindId" Int.Int32
-
-
-type RepoType = Tagged.Tagged "RepoType" Text.Text
-
-
-type RepoTypeId = Tagged.Tagged "RepoTypeId" Int.Int32
 
 
 data Library = Library
@@ -147,19 +108,10 @@ data Library = Library
   } deriving Show
 
 
-type ModuleName = Tagged.Tagged "ModuleName" [Text.Text]
-
-
 data Dependency = Dependency
   { dependencyPackage :: PackageName
   , dependencyConstraint :: Constraint
   } deriving Show
-
-
-type Constraint = Tagged.Tagged "Constraint" Text.Text
-
-
-type ConstraintId = Tagged.Tagged "ConstraintId" Int.Int32
 
 
 data Executable = Executable
@@ -178,6 +130,24 @@ data Benchmark = Benchmark
   { benchmarkName :: Text.Text
   , benchmarkDependencies :: [Dependency]
   } deriving Show
+
+
+type Category = Tagged.Tagged "Category" Text.Text
+type CategoryId = Tagged.Tagged "CategoryId" Int.Int32
+type Constraint = Tagged.Tagged "Constraint" Text.Text
+type ConstraintId = Tagged.Tagged "ConstraintId" Int.Int32
+type License = Tagged.Tagged "License" Text.Text
+type ModuleName = Tagged.Tagged "ModuleName" [Text.Text]
+type PackageId = Tagged.Tagged "PackageId" Int.Int32
+type PackageName = Tagged.Tagged "PackageName" Text.Text
+type PackageNameId = Tagged.Tagged "PackageNameId" Int.Int32
+type RepoId = Tagged.Tagged "RepoId" Int.Int32
+type RepoKind = Tagged.Tagged "RepoKind" Text.Text
+type RepoKindId = Tagged.Tagged "RepoKindId" Int.Int32
+type RepoType = Tagged.Tagged "RepoType" Text.Text
+type RepoTypeId = Tagged.Tagged "RepoTypeId" Int.Int32
+type Revision = Tagged.Tagged "Revision" Int.Int32
+type Version = Tagged.Tagged "Version" [Int.Int32]
 
 
 handlePackage :: Sql.Connection -> Package -> IO ()
