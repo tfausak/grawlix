@@ -21,6 +21,7 @@ import qualified Data.Int as Int
 import qualified Data.List as List
 import qualified Data.Maybe as Maybe
 import qualified Data.Tagged as Tagged
+import qualified Data.Tree as Tree
 import qualified Data.Text as Text
 import qualified Data.Text.Encoding as Text
 import qualified Data.Text.Lazy as LazyText
@@ -696,6 +697,30 @@ toBenchmark benchmark = Benchmark
     |> Cabal.targetBuildDepends
     |> map toDependency
   }
+
+
+nodeToTree
+  :: Cabal.Condition v
+  -> Cabal.CondTree v c a
+  -> Tree.Tree (Cabal.Condition v, c, a)
+nodeToTree condition node = Tree.Node
+  { Tree.rootLabel =
+    (condition, Cabal.condTreeConstraints node, Cabal.condTreeData node)
+  , Tree.subForest = node
+    |> Cabal.condTreeComponents
+    |> concatMap componentToForest
+  }
+
+
+componentToForest
+  :: (Cabal.Condition v, Cabal.CondTree v c a, Maybe (Cabal.CondTree v c a))
+  -> Tree.Forest (Cabal.Condition v, c, a)
+componentToForest (condition, ifTrue, maybeIfFalse) = let
+  first = nodeToTree condition ifTrue
+  rest = case maybeIfFalse of
+    Nothing -> []
+    Just ifFalse -> [nodeToTree (Cabal.CNot condition) ifFalse]
+  in first : rest
 
 
 fromCondTree :: Cabal.CondTree v c a -> [a]

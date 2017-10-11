@@ -23,6 +23,7 @@ library:
     - base64-bytestring
     - bytestring
     - Cabal
+    - containers
     - contravariant
     - contravariant-extras
     - directory
