@@ -103,7 +103,8 @@ data Repo = Repo
 
 
 data Library = Library
-  { libraryModules :: [ModuleName]
+  { libraryName :: LibraryName
+  , libraryModules :: [ModuleName]
   , libraryDependencies :: [Dependency]
   } deriving Show
 
@@ -115,27 +116,30 @@ data Dependency = Dependency
 
 
 data Executable = Executable
-  { executableName :: Text.Text
+  { executableName :: ExecutableName
   , executableDependencies :: [Dependency]
   } deriving Show
 
 
 data Test = Test
-  { testName :: Text.Text
+  { testName :: TestName
   , testDependencies :: [Dependency]
   } deriving Show
 
 
 data Benchmark = Benchmark
-  { benchmarkName :: Text.Text
+  { benchmarkName :: BenchmarkName
   , benchmarkDependencies :: [Dependency]
   } deriving Show
 
 
+type BenchmarkName = Tagged.Tagged "ModuleName" Text.Text
 type Category = Tagged.Tagged "Category" Text.Text
 type CategoryId = Tagged.Tagged "CategoryId" Int.Int32
 type Constraint = Tagged.Tagged "Constraint" Text.Text
 type ConstraintId = Tagged.Tagged "ConstraintId" Int.Int32
+type ExecutableName = Tagged.Tagged "ModuleName" Text.Text
+type LibraryName = Tagged.Tagged "ModuleName" Text.Text
 type License = Tagged.Tagged "License" Text.Text
 type ModuleName = Tagged.Tagged "ModuleName" [Text.Text]
 type PackageId = Tagged.Tagged "PackageId" Int.Int32
@@ -147,6 +151,7 @@ type RepoKindId = Tagged.Tagged "RepoKindId" Int.Int32
 type RepoType = Tagged.Tagged "RepoType" Text.Text
 type RepoTypeId = Tagged.Tagged "RepoTypeId" Int.Int32
 type Revision = Tagged.Tagged "Revision" Int.Int32
+type TestName = Tagged.Tagged "ModuleName" Text.Text
 type Version = Tagged.Tagged "Version" [Int.Int32]
 
 
@@ -567,6 +572,13 @@ toPackage package = Package
     |> Cabal.sourceRepos
     |> Maybe.mapMaybe toRepo
   , packageLibraries = let
+    name = package
+      |> Cabal.packageDescription
+      |> Cabal.package
+      |> Cabal.pkgName
+      |> Cabal.unPackageName
+      |> Text.pack
+      |> Tagged.Tagged
     library = package
       |> Cabal.packageDescription
       |> Cabal.library
@@ -575,7 +587,7 @@ toPackage package = Package
       |> Cabal.condLibrary
       |> Foldable.toList
       |> concatMap fromCondTree
-    in [library, condLibrary] |> concat |> map toLibrary
+    in [library, condLibrary] |> concat |> map (toLibrary name)
   , packageExecutables = let
     executables = package |> Cabal.packageDescription |> Cabal.executables
     condExecutables = package
@@ -622,9 +634,10 @@ toRepo repo = do
   pure Repo { repoKind, repoType, repoUrl }
 
 
-toLibrary :: Cabal.Library -> Library
-toLibrary library = Library
-  { libraryModules = library
+toLibrary :: LibraryName -> Cabal.Library -> Library
+toLibrary name library = Library
+  { libraryName = name
+  , libraryModules = library
     |> Cabal.exposedModules
     |> map (\ moduleName -> moduleName
       |> Cabal.components
@@ -654,7 +667,7 @@ toDependency (Cabal.Dependency packageName versionRange) = Dependency
 
 toExecutable :: Cabal.Executable -> Executable
 toExecutable executable = Executable
-  { executableName = executable |> Cabal.exeName |> Text.pack
+  { executableName = executable |> Cabal.exeName |> Text.pack |> Tagged.Tagged
   , executableDependencies = executable
     |> Cabal.buildInfo
     |> Cabal.targetBuildDepends
@@ -664,7 +677,7 @@ toExecutable executable = Executable
 
 toTest :: Cabal.TestSuite -> Test
 toTest test = Test
-  { testName = test |> Cabal.testName |> Text.pack
+  { testName = test |> Cabal.testName |> Text.pack |> Tagged.Tagged
   , testDependencies = test
     |> Cabal.testBuildInfo
     |> Cabal.targetBuildDepends
@@ -674,7 +687,10 @@ toTest test = Test
 
 toBenchmark :: Cabal.Benchmark -> Benchmark
 toBenchmark benchmark = Benchmark
-  { benchmarkName = benchmark |> Cabal.benchmarkName |> Text.pack
+  { benchmarkName = benchmark
+    |> Cabal.benchmarkName
+    |> Text.pack
+    |> Tagged.Tagged
   , benchmarkDependencies = benchmark
     |> Cabal.benchmarkBuildInfo
     |> Cabal.targetBuildDepends
