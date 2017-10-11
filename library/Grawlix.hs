@@ -588,6 +588,7 @@ toPackage package = Package
       |> Cabal.condLibrary
       |> Foldable.toList
       |> concatMap fromCondTree
+      |> map fst
     in [library, condLibrary] |> concat |> map (toLibrary name)
   , packageExecutables = let
     executables = package |> Cabal.packageDescription |> Cabal.executables
@@ -595,6 +596,7 @@ toPackage package = Package
       |> Cabal.condExecutables
       |> concatMap (\ (name, tree) -> tree
         |> fromCondTree
+        |> map fst
         |> map (\ executable -> executable { Cabal.exeName = name }))
     in [executables, condExecutables] |> concat |> map toExecutable
   , packageTests = let
@@ -603,6 +605,7 @@ toPackage package = Package
       |> Cabal.condTestSuites
       |> concatMap (\ (name, tree) -> tree
         |> fromCondTree
+        |> map fst
         |> map (\ test -> test { Cabal.testName = name }))
     in [tests, condTests] |> concat |> map toTest
   , packageBenchmarks = let
@@ -611,6 +614,7 @@ toPackage package = Package
       |> Cabal.condBenchmarks
       |> concatMap (\ (name, tree) -> tree
         |> fromCondTree
+        |> map fst
         |> map (\ benchmark -> benchmark { Cabal.benchmarkName = name }))
     in [benchmarks, condBenchmarks] |> concat |> map toBenchmark
   }
@@ -723,18 +727,24 @@ componentToForest (condition, ifTrue, maybeIfFalse) = let
   in first : rest
 
 
-fromCondTree :: Cabal.CondTree v c a -> [a]
-fromCondTree tree = let
-  root = Cabal.condTreeData tree
-  leaves = Cabal.condTreeComponents tree
-  branches = concatMap fromCondBranch leaves
-  in root : concatMap fromCondTree branches
+fromCondTree :: Cabal.CondTree v [c] a -> [(a, ([Cabal.Condition v], [c]))]
+fromCondTree tree = tree |> nodeToTree (Cabal.Lit True) |> foldTree [] []
 
 
-fromCondBranch
-  :: (Cabal.Condition v, Cabal.CondTree v c a, Maybe (Cabal.CondTree v c a))
-  -> [Cabal.CondTree v c a]
-fromCondBranch (_, ifTrue, ifFalse) = ifTrue : Foldable.toList ifFalse
+foldTree
+  :: [Cabal.Condition v]
+  -> [c]
+  -> Tree.Tree (Cabal.Condition v, [c], a)
+  -> [(a, ([Cabal.Condition v], [c]))]
+foldTree conditions constraints tree = case Tree.rootLabel tree of
+  (condition, newConstraints, item) -> let
+    allConditions = condition : conditions
+    allConstraints = newConstraints ++ constraints
+    first = (item, (allConditions, allConstraints))
+    rest = tree
+      |> Tree.subForest
+      |> concatMap (foldTree allConditions allConstraints)
+    in first : rest
 
 
 fromEntries :: Tar.Entries a -> [Tar.Entry]
