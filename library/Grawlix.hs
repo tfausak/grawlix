@@ -10,6 +10,7 @@ import Flow ((|>))
 import qualified Codec.Archive.Tar as Tar
 import qualified Codec.Compression.GZip as Gzip
 import qualified Contravariant.Extras as Contravariant
+import qualified Control.Arrow as Arrow
 import qualified Control.Exception as Exception
 import qualified Data.ByteString as Bytes
 import qualified Data.ByteString.Base16 as Base16
@@ -21,11 +22,11 @@ import qualified Data.Int as Int
 import qualified Data.List as List
 import qualified Data.Maybe as Maybe
 import qualified Data.Tagged as Tagged
-import qualified Data.Tree as Tree
 import qualified Data.Text as Text
 import qualified Data.Text.Encoding as Text
 import qualified Data.Text.Lazy as LazyText
 import qualified Data.Text.Lazy.Encoding as LazyText
+import qualified Data.Tree as Tree
 import qualified Distribution.ModuleName as Cabal
 import qualified Distribution.Package as Cabal
 import qualified Distribution.PackageDescription as Cabal
@@ -105,6 +106,8 @@ data Repo = Repo
 
 data Library = Library
   { libraryName :: LibraryName
+  , libraryConstraints :: [Dependency]
+  , libraryConditions :: [Cabal.Condition Cabal.ConfVar]
   , libraryModules :: [ModuleName]
   , libraryDependencies :: [Dependency]
   } deriving Show
@@ -118,18 +121,24 @@ data Dependency = Dependency
 
 data Executable = Executable
   { executableName :: ExecutableName
+  , executableConstraints :: [Dependency]
+  , executableConditions :: [Cabal.Condition Cabal.ConfVar]
   , executableDependencies :: [Dependency]
   } deriving Show
 
 
 data Test = Test
   { testName :: TestName
+  , testConstraints :: [Dependency]
+  , testConditions :: [Cabal.Condition Cabal.ConfVar]
   , testDependencies :: [Dependency]
   } deriving Show
 
 
 data Benchmark = Benchmark
   { benchmarkName :: BenchmarkName
+  , benchmarkConstraints :: [Dependency]
+  , benchmarkConditions :: [Cabal.Condition Cabal.ConfVar]
   , benchmarkDependencies :: [Dependency]
   } deriving Show
 
@@ -500,10 +509,9 @@ insertCategoryPackage = makeQuery
 
 makeQuery
   :: String -> Sql.Encode.Params a -> Sql.Decode.Result b -> Sql.Query a b
-makeQuery rawSql encoder decoder =
-  let
-    sql = rawSql |> Text.pack |> Text.encodeUtf8
-    prepare = True
+makeQuery rawSql encoder decoder = let
+  sql = rawSql |> Text.pack |> Text.encodeUtf8
+  prepare = True
   in Sql.statement sql encoder decoder prepare
 
 
@@ -562,7 +570,7 @@ toPackage package = Package
     |> Text.pack
     |> Text.splitOn (Text.singleton ',')
     |> map Text.strip
-    |> filter (\ category -> category |> Text.null |> not)
+    |> filter (\ x -> x |> Text.null |> not)
     |> map Tagged.Tagged
   , packageUrl = package
     |> Cabal.packageDescription
@@ -584,38 +592,44 @@ toPackage package = Package
       |> Cabal.packageDescription
       |> Cabal.library
       |> Foldable.toList
+      |> map withoutConditionsOrConstraints
     condLibrary = package
       |> Cabal.condLibrary
       |> Foldable.toList
       |> concatMap fromCondTree
-      |> map fst
     in [library, condLibrary] |> concat |> map (toLibrary name)
   , packageExecutables = let
-    executables = package |> Cabal.packageDescription |> Cabal.executables
+    executables = package
+      |> Cabal.packageDescription
+      |> Cabal.executables
+      |> map withoutConditionsOrConstraints
     condExecutables = package
       |> Cabal.condExecutables
       |> concatMap (\ (name, tree) -> tree
         |> fromCondTree
-        |> map fst
-        |> map (\ executable -> executable { Cabal.exeName = name }))
+        |> map (Arrow.first (\ x -> x { Cabal.exeName = name })))
     in [executables, condExecutables] |> concat |> map toExecutable
   , packageTests = let
-    tests = package |> Cabal.packageDescription |> Cabal.testSuites
+    tests = package
+      |> Cabal.packageDescription
+      |> Cabal.testSuites
+      |> map withoutConditionsOrConstraints
     condTests = package
       |> Cabal.condTestSuites
       |> concatMap (\ (name, tree) -> tree
         |> fromCondTree
-        |> map fst
-        |> map (\ test -> test { Cabal.testName = name }))
+        |> map (Arrow.first (\ x -> x { Cabal.testName = name })))
     in [tests, condTests] |> concat |> map toTest
   , packageBenchmarks = let
-    benchmarks = package |> Cabal.packageDescription |> Cabal.benchmarks
+    benchmarks = package
+      |> Cabal.packageDescription
+      |> Cabal.benchmarks
+      |> map withoutConditionsOrConstraints
     condBenchmarks = package
       |> Cabal.condBenchmarks
       |> concatMap (\ (name, tree) -> tree
         |> fromCondTree
-        |> map fst
-        |> map (\ benchmark -> benchmark { Cabal.benchmarkName = name }))
+        |> map (Arrow.first (\ x -> x { Cabal.benchmarkName = name })))
     in [benchmarks, condBenchmarks] |> concat |> map toBenchmark
   }
 
@@ -639,9 +653,14 @@ toRepo repo = do
   pure Repo { repoKind, repoType, repoUrl }
 
 
-toLibrary :: LibraryName -> Cabal.Library -> Library
-toLibrary name library = Library
+toLibrary
+  :: LibraryName
+  -> (Cabal.Library, ([Cabal.Condition Cabal.ConfVar], [Cabal.Dependency]))
+  -> Library
+toLibrary name (library, (conditions, constraints)) = Library
   { libraryName = name
+  , libraryConditions = conditions
+  , libraryConstraints = map toDependency constraints
   , libraryModules = library
     |> Cabal.exposedModules
     |> map (\ moduleName -> moduleName
@@ -670,9 +689,13 @@ toDependency (Cabal.Dependency packageName versionRange) = Dependency
   }
 
 
-toExecutable :: Cabal.Executable -> Executable
-toExecutable executable = Executable
+toExecutable
+  :: (Cabal.Executable, ([Cabal.Condition Cabal.ConfVar], [Cabal.Dependency]))
+  -> Executable
+toExecutable (executable, (conditions, constraints)) = Executable
   { executableName = executable |> Cabal.exeName |> Text.pack |> Tagged.Tagged
+  , executableConditions = conditions
+  , executableConstraints = map toDependency constraints
   , executableDependencies = executable
     |> Cabal.buildInfo
     |> Cabal.targetBuildDepends
@@ -680,9 +703,13 @@ toExecutable executable = Executable
   }
 
 
-toTest :: Cabal.TestSuite -> Test
-toTest test = Test
+toTest
+  :: (Cabal.TestSuite, ([Cabal.Condition Cabal.ConfVar], [Cabal.Dependency]))
+  -> Test
+toTest (test, (conditions, constraints)) = Test
   { testName = test |> Cabal.testName |> Text.pack |> Tagged.Tagged
+  , testConditions = conditions
+  , testConstraints = map toDependency constraints
   , testDependencies = test
     |> Cabal.testBuildInfo
     |> Cabal.targetBuildDepends
@@ -690,17 +717,26 @@ toTest test = Test
   }
 
 
-toBenchmark :: Cabal.Benchmark -> Benchmark
-toBenchmark benchmark = Benchmark
+toBenchmark
+  :: (Cabal.Benchmark, ([Cabal.Condition Cabal.ConfVar], [Cabal.Dependency]))
+  -> Benchmark
+toBenchmark (benchmark, (conditions, constraints)) = Benchmark
   { benchmarkName = benchmark
     |> Cabal.benchmarkName
     |> Text.pack
     |> Tagged.Tagged
+  , benchmarkConditions = conditions
+  , benchmarkConstraints = map toDependency constraints
   , benchmarkDependencies = benchmark
     |> Cabal.benchmarkBuildInfo
     |> Cabal.targetBuildDepends
     |> map toDependency
   }
+
+
+withoutConditionsOrConstraints
+  :: a -> (a, ([Cabal.Condition Cabal.ConfVar], [Cabal.Dependency]))
+withoutConditionsOrConstraints x = (x, ([], []))
 
 
 nodeToTree
@@ -737,10 +773,10 @@ foldTree
   -> Tree.Tree (Cabal.Condition v, [c], a)
   -> [(a, ([Cabal.Condition v], [c]))]
 foldTree conditions constraints tree = case Tree.rootLabel tree of
-  (condition, newConstraints, item) -> let
+  (condition, newConstraints, x) -> let
     allConditions = condition : conditions
     allConstraints = newConstraints ++ constraints
-    first = (item, (allConditions, allConstraints))
+    first = (x, (allConditions, allConstraints))
     rest = tree
       |> Tree.subForest
       |> concatMap (foldTree allConditions allConstraints)
