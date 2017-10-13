@@ -106,7 +106,7 @@ data Repo = Repo
 
 data Library = Library
   { libraryName :: LibraryName
-  , libraryConditions :: Condition
+  , libraryConditions :: Conditions
   , libraryModules :: [ModuleName]
   , libraryDependencies :: Dependencies
   } deriving Show
@@ -120,36 +120,39 @@ data Dependency = Dependency
 
 data Executable = Executable
   { executableName :: ExecutableName
-  , executableConditions :: Condition
+  , executableConditions :: Conditions
   , executableDependencies :: Dependencies
   } deriving Show
 
 
 data Test = Test
   { testName :: TestName
-  , testConditions :: Condition
+  , testConditions :: Conditions
   , testDependencies :: Dependencies
   } deriving Show
 
 
 data Benchmark = Benchmark
   { benchmarkName :: BenchmarkName
-  , benchmarkConditions :: Condition
+  , benchmarkConditions :: Conditions
   , benchmarkDependencies :: Dependencies
   } deriving Show
 
 
-type BenchmarkName = Tagged.Tagged "ModuleName" Text.Text
+type BenchmarkName = Tagged.Tagged "BenchmarkName" Text.Text
 type Category = Tagged.Tagged "Category" Text.Text
 type CategoryId = Tagged.Tagged "CategoryId" Int.Int32
-type Condition = Tagged.Tagged "Condition" Text.Text
+type Conditions = Tagged.Tagged "Conditions" Text.Text
 type Constraint = Tagged.Tagged "Constraint" Text.Text
 type ConstraintId = Tagged.Tagged "ConstraintId" Int.Int32
+type DependencyId = Tagged.Tagged "DependencyId" Int.Int32
 type Dependencies = Map.Map PackageName Constraint
-type ExecutableName = Tagged.Tagged "ModuleName" Text.Text
-type LibraryName = Tagged.Tagged "ModuleName" Text.Text
+type ExecutableName = Tagged.Tagged "ExecutableName" Text.Text
+type LibraryId = Tagged.Tagged "LibraryId" Int.Int32
+type LibraryName = Tagged.Tagged "LibraryName" Text.Text
 type License = Tagged.Tagged "License" Text.Text
 type ModuleName = Tagged.Tagged "ModuleName" [Text.Text]
+type ModuleNameId = Tagged.Tagged "ModuleNameId" Int.Int32
 type PackageId = Tagged.Tagged "PackageId" Int.Int32
 type PackageName = Tagged.Tagged "PackageName" Text.Text
 type PackageNameId = Tagged.Tagged "PackageNameId" Int.Int32
@@ -159,7 +162,7 @@ type RepoKindId = Tagged.Tagged "RepoKindId" Int.Int32
 type RepoType = Tagged.Tagged "RepoType" Text.Text
 type RepoTypeId = Tagged.Tagged "RepoTypeId" Int.Int32
 type Revision = Tagged.Tagged "Revision" Int.Int32
-type TestName = Tagged.Tagged "ModuleName" Text.Text
+type TestName = Tagged.Tagged "TestName" Text.Text
 type Version = Tagged.Tagged "Version" [Int.Int32]
 
 
@@ -209,13 +212,16 @@ handlePackage connection package = do
     runQuery connection insertPackageRepo (packageId, repoId))
 
   package |> packageLibraries |> mapM_ (\ library -> do
-    -- TODO: Actually insert libraries.
+    let Library { libraryName, libraryConditions } = library
+    runQuery connection insertLibrary
+      (packageId, libraryName, libraryConditions)
+    libraryId <- runQuery connection selectLibraryId
+      (packageId, libraryName, libraryConditions)
 
-    library
-      |> libraryModules
-      |> mapM_ (\ moduleName -> do
-        runQuery connection insertModuleName moduleName
-        {- TODO: Connect module names to libraries. -})
+    library |> libraryModules |> mapM_ (\ moduleName -> do
+      runQuery connection insertModuleName moduleName
+      moduleNameId <- runQuery connection selectModuleNameId moduleName
+      runQuery connection insertLibraryModuleName (libraryId, moduleNameId))
 
     library
       |> libraryDependencies
@@ -228,7 +234,9 @@ handlePackage connection package = do
         packageNameId <- runQuery connection selectPackageNameId packageName
 
         runQuery connection insertDependency (constraintId, packageNameId)
-        {- TODO: Connect dependencies to libraries. -}))
+        dependencyId <- runQuery connection selectDependencyId
+          (constraintId, packageNameId)
+        runQuery connection insertDependencyLibrary (dependencyId, libraryId)))
 
   -- TODO: More stuff.
 
@@ -242,6 +250,75 @@ logPackage package = Printf.printf "%s\t%s\t%d\n"
     |> map show
     |> List.intercalate ".")
   (package |> packageRevision |> Tagged.untag)
+
+
+selectDependencyId :: Sql.Query (ConstraintId, PackageNameId) DependencyId
+selectDependencyId = makeQuery
+  [QQ.string|
+    select id
+    from dependencies
+    where constraint_id = $1
+    and package_name_id = $2
+  |]
+  (Contravariant.contrazip2 idParam idParam)
+  idResult
+
+
+insertDependencyLibrary :: Sql.Query (DependencyId, LibraryId) ()
+insertDependencyLibrary = makeQuery
+  [QQ.string|
+    insert into dependencies_libraries ( dependency_id, library_id )
+    values ( $1, $2 )
+    on conflict do nothing
+  |]
+  (Contravariant.contrazip2 idParam idParam)
+  Sql.Decode.unit
+
+
+insertLibrary :: Sql.Query (PackageId, LibraryName, Conditions) ()
+insertLibrary = makeQuery
+  [QQ.string|
+    insert into libraries ( package_id, name, conditions )
+    values ( $1, $2, $3 )
+    on conflict do nothing
+  |]
+  (Contravariant.contrazip3 idParam taggedTextParam taggedTextParam)
+  Sql.Decode.unit
+
+
+selectLibraryId :: Sql.Query (PackageId, LibraryName, Conditions) LibraryId
+selectLibraryId = makeQuery
+  [QQ.string|
+    select id
+    from libraries
+    where package_id = $1
+    and name = $2
+    and conditions = $3
+  |]
+  (Contravariant.contrazip3 idParam taggedTextParam taggedTextParam)
+  idResult
+
+
+selectModuleNameId :: Sql.Query ModuleName ModuleNameId
+selectModuleNameId = makeQuery
+  [QQ.string|
+    select id
+    from module_names
+    where content = $1
+  |]
+  (Sql.Encode.text |> arrayOf |> contraUntag)
+  idResult
+
+
+insertLibraryModuleName :: Sql.Query (LibraryId, ModuleNameId) ()
+insertLibraryModuleName = makeQuery
+  [QQ.string|
+    insert into libraries_module_names ( library_id, module_name_id )
+    values ( $1, $2 )
+    on conflict do nothing
+  |]
+  (Contravariant.contrazip2 idParam idParam)
+  Sql.Decode.unit
 
 
 selectRepoTypeId :: Sql.Query RepoType RepoTypeId
@@ -655,7 +732,7 @@ toLibrary
   -> Library
 toLibrary name (library, (conditions, constraints)) = Library
   { libraryName = name
-  , libraryConditions = toCondition conditions
+  , libraryConditions = toConditions conditions
   , libraryModules = library
     |> Cabal.exposedModules
     |> map (\ moduleName -> moduleName
@@ -671,8 +748,8 @@ toLibrary name (library, (conditions, constraints)) = Library
   }
 
 
-toCondition :: [Cabal.Condition Cabal.ConfVar] -> Condition
-toCondition conditions = conditions
+toConditions :: [Cabal.Condition Cabal.ConfVar] -> Conditions
+toConditions conditions = conditions
   |> combineConditions
   |> simplifyCondition
   |> renderCondition
@@ -761,7 +838,7 @@ toExecutable
   -> Executable
 toExecutable (executable, (conditions, constraints)) = Executable
   { executableName = executable |> Cabal.exeName |> Text.pack |> Tagged.Tagged
-  , executableConditions = toCondition conditions
+  , executableConditions = toConditions conditions
   , executableDependencies = executable
     |> Cabal.buildInfo
     |> Cabal.targetBuildDepends
@@ -776,7 +853,7 @@ toTest
   -> Test
 toTest (test, (conditions, constraints)) = Test
   { testName = test |> Cabal.testName |> Text.pack |> Tagged.Tagged
-  , testConditions = toCondition conditions
+  , testConditions = toConditions conditions
   , testDependencies = test
     |> Cabal.testBuildInfo
     |> Cabal.targetBuildDepends
@@ -794,7 +871,7 @@ toBenchmark (benchmark, (conditions, constraints)) = Benchmark
     |> Cabal.benchmarkName
     |> Text.pack
     |> Tagged.Tagged
-  , benchmarkConditions = toCondition conditions
+  , benchmarkConditions = toConditions conditions
   , benchmarkDependencies = benchmark
     |> Cabal.benchmarkBuildInfo
     |> Cabal.targetBuildDepends
