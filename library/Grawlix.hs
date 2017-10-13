@@ -106,7 +106,6 @@ data Repo = Repo
 
 data Library = Library
   { libraryName :: LibraryName
-  , libraryConstraints :: [Dependency]
   , libraryConditions :: [Cabal.Condition Cabal.ConfVar]
   , libraryModules :: [ModuleName]
   , libraryDependencies :: [Dependency]
@@ -121,7 +120,6 @@ data Dependency = Dependency
 
 data Executable = Executable
   { executableName :: ExecutableName
-  , executableConstraints :: [Dependency]
   , executableConditions :: [Cabal.Condition Cabal.ConfVar]
   , executableDependencies :: [Dependency]
   } deriving Show
@@ -129,7 +127,6 @@ data Executable = Executable
 
 data Test = Test
   { testName :: TestName
-  , testConstraints :: [Dependency]
   , testConditions :: [Cabal.Condition Cabal.ConfVar]
   , testDependencies :: [Dependency]
   } deriving Show
@@ -137,7 +134,6 @@ data Test = Test
 
 data Benchmark = Benchmark
   { benchmarkName :: BenchmarkName
-  , benchmarkConstraints :: [Dependency]
   , benchmarkConditions :: [Cabal.Condition Cabal.ConfVar]
   , benchmarkDependencies :: [Dependency]
   } deriving Show
@@ -660,7 +656,6 @@ toLibrary
 toLibrary name (library, (conditions, constraints)) = Library
   { libraryName = name
   , libraryConditions = conditions
-  , libraryConstraints = map toDependency constraints
   , libraryModules = library
     |> Cabal.exposedModules
     |> map (\ moduleName -> moduleName
@@ -671,6 +666,7 @@ toLibrary name (library, (conditions, constraints)) = Library
     |> Cabal.libBuildInfo
     |> Cabal.targetBuildDepends
     |> map toDependency
+    |> (++ map toDependency constraints)
   }
 
 
@@ -695,11 +691,11 @@ toExecutable
 toExecutable (executable, (conditions, constraints)) = Executable
   { executableName = executable |> Cabal.exeName |> Text.pack |> Tagged.Tagged
   , executableConditions = conditions
-  , executableConstraints = map toDependency constraints
   , executableDependencies = executable
     |> Cabal.buildInfo
     |> Cabal.targetBuildDepends
     |> map toDependency
+    |> (++ map toDependency constraints)
   }
 
 
@@ -709,11 +705,11 @@ toTest
 toTest (test, (conditions, constraints)) = Test
   { testName = test |> Cabal.testName |> Text.pack |> Tagged.Tagged
   , testConditions = conditions
-  , testConstraints = map toDependency constraints
   , testDependencies = test
     |> Cabal.testBuildInfo
     |> Cabal.targetBuildDepends
     |> map toDependency
+    |> (++ map toDependency constraints)
   }
 
 
@@ -726,11 +722,11 @@ toBenchmark (benchmark, (conditions, constraints)) = Benchmark
     |> Text.pack
     |> Tagged.Tagged
   , benchmarkConditions = conditions
-  , benchmarkConstraints = map toDependency constraints
   , benchmarkDependencies = benchmark
     |> Cabal.benchmarkBuildInfo
     |> Cabal.targetBuildDepends
     |> map toDependency
+    |> (++ map toDependency constraints)
   }
 
 
