@@ -50,7 +50,6 @@ import qualified System.Directory as Directory
 import qualified System.Environment as Environment
 import qualified System.FilePath as Path
 import qualified System.IO as IO
-import qualified Text.PrettyPrint as Pretty
 import qualified Text.Printf as Printf
 import qualified Text.Read as Read
 
@@ -553,8 +552,7 @@ toPackage package = Package
   , packageLicense = package
     |> Cabal.packageDescription
     |> Cabal.license
-    |> Cabal.disp
-    |> Pretty.render
+    |> Cabal.display
     |> Text.pack
     |> Tagged.Tagged
   , packageSynopsis = package
@@ -639,14 +637,12 @@ toRepo :: Cabal.SourceRepo -> Maybe Repo
 toRepo repo = do
   let repoKind = repo
         |> Cabal.repoKind
-        |> Cabal.disp
-        |> Pretty.render
+        |> Cabal.display
         |> Text.pack
         |> Tagged.Tagged
   rawRepoType <- Cabal.repoType repo
   let repoType = rawRepoType
-        |> Cabal.disp
-        |> Pretty.render
+        |> Cabal.display
         |> Text.pack
         |> Tagged.Tagged
   rawRepoUrl <- Cabal.repoLocation repo

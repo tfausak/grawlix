@@ -35,7 +35,6 @@ library:
     - http-client
     - http-client-tls
     - http-types
-    - pretty
     - tagged
     - tar
     - template-haskell
