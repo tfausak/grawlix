@@ -28,7 +28,6 @@ import qualified Data.Text.Encoding as Text
 import qualified Data.Text.Lazy as LazyText
 import qualified Data.Text.Lazy.Encoding as LazyText
 import qualified Data.Tree as Tree
-import qualified Distribution.Compat.ReadP as Cabal
 import qualified Distribution.ModuleName as Cabal
 import qualified Distribution.Package as Cabal
 import qualified Distribution.PackageDescription as Cabal
@@ -119,7 +118,7 @@ type Dependencies = Map.Map PackageName Constraint
 
 data Dependency = Dependency
   { dependencyPackage :: PackageName
-  , dependencyConstraint :: Constraint
+  , dependencyVersionRange :: Cabal.VersionRange
   } deriving Show
 
 
@@ -680,14 +679,7 @@ toLibrary name (library, (conditions, constraints)) = Library
 toDependencies :: [Dependency] -> Dependencies
 toDependencies dependencies = dependencies
   |> map (\ dependency ->
-    ( dependencyPackage dependency
-    , dependency
-      |> dependencyConstraint
-      |> Tagged.untag
-      |> Text.unpack
-      |> parse
-      |> Maybe.fromJust
-    ))
+    (dependencyPackage dependency, dependencyVersionRange dependency))
   |> Map.fromListWith Cabal.intersectVersionRanges
   |> Map.map (\ versionRange -> versionRange
     |> Cabal.simplifyVersionRange
@@ -696,26 +688,13 @@ toDependencies dependencies = dependencies
     |> Tagged.Tagged)
 
 
-parse :: Cabal.Text a => String -> Maybe a
-parse string = string
-  |> Cabal.readP_to_S Cabal.parse
-  |> filter (\ (_, leftover) -> null leftover)
-  |> map fst
-  |> Maybe.listToMaybe
-
-
 toDependency :: Cabal.Dependency -> Dependency
 toDependency (Cabal.Dependency packageName versionRange) = Dependency
   { dependencyPackage = packageName
     |> Cabal.unPackageName
     |> Text.pack
     |> Tagged.Tagged
-  , dependencyConstraint = versionRange
-    |> Cabal.simplifyVersionRange
-    |> Cabal.disp
-    |> Pretty.render
-    |> Text.pack
-    |> Tagged.Tagged
+  , dependencyVersionRange = versionRange
   }
 
 
