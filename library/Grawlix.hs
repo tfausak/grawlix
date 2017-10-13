@@ -20,6 +20,7 @@ import qualified Data.Foldable as Foldable
 import qualified Data.Functor.Contravariant as Contravariant
 import qualified Data.Int as Int
 import qualified Data.List as List
+import qualified Data.Map as Map
 import qualified Data.Maybe as Maybe
 import qualified Data.Tagged as Tagged
 import qualified Data.Text as Text
@@ -27,6 +28,7 @@ import qualified Data.Text.Encoding as Text
 import qualified Data.Text.Lazy as LazyText
 import qualified Data.Text.Lazy.Encoding as LazyText
 import qualified Data.Tree as Tree
+import qualified Distribution.Compat.ReadP as Cabal
 import qualified Distribution.ModuleName as Cabal
 import qualified Distribution.Package as Cabal
 import qualified Distribution.PackageDescription as Cabal
@@ -108,8 +110,11 @@ data Library = Library
   { libraryName :: LibraryName
   , libraryConditions :: [Cabal.Condition Cabal.ConfVar]
   , libraryModules :: [ModuleName]
-  , libraryDependencies :: [Dependency]
+  , libraryDependencies :: Dependencies
   } deriving Show
+
+
+type Dependencies = Map.Map PackageName Constraint
 
 
 data Dependency = Dependency
@@ -121,21 +126,21 @@ data Dependency = Dependency
 data Executable = Executable
   { executableName :: ExecutableName
   , executableConditions :: [Cabal.Condition Cabal.ConfVar]
-  , executableDependencies :: [Dependency]
+  , executableDependencies :: Dependencies
   } deriving Show
 
 
 data Test = Test
   { testName :: TestName
   , testConditions :: [Cabal.Condition Cabal.ConfVar]
-  , testDependencies :: [Dependency]
+  , testDependencies :: Dependencies
   } deriving Show
 
 
 data Benchmark = Benchmark
   { benchmarkName :: BenchmarkName
   , benchmarkConditions :: [Cabal.Condition Cabal.ConfVar]
-  , benchmarkDependencies :: [Dependency]
+  , benchmarkDependencies :: Dependencies
   } deriving Show
 
 
@@ -215,17 +220,18 @@ handlePackage connection package = do
         runQuery connection insertModuleName moduleName
         {- TODO: Connect module names to libraries. -})
 
-    library |> libraryDependencies |> mapM_ (\ dependency -> do
-      let constraint = dependencyConstraint dependency
-      runQuery connection insertConstraint constraint
-      constraintId <- runQuery connection selectConstraintId constraint
+    library
+      |> libraryDependencies
+      |> Map.toAscList
+      |> mapM_ (\ (packageName, constraint) -> do
+        runQuery connection insertConstraint constraint
+        constraintId <- runQuery connection selectConstraintId constraint
 
-      let packageName = dependencyPackage dependency
-      runQuery connection insertPackageName packageName
-      packageNameId <- runQuery connection selectPackageNameId packageName
+        runQuery connection insertPackageName packageName
+        packageNameId <- runQuery connection selectPackageNameId packageName
 
-      runQuery connection insertDependency (constraintId, packageNameId)
-      {- TODO: Connect dependencies to libraries. -}))
+        runQuery connection insertDependency (constraintId, packageNameId)
+        {- TODO: Connect dependencies to libraries. -}))
 
   -- TODO: More stuff.
 
@@ -667,7 +673,35 @@ toLibrary name (library, (conditions, constraints)) = Library
     |> Cabal.targetBuildDepends
     |> map toDependency
     |> (++ map toDependency constraints)
+    |> toDependencies
   }
+
+
+toDependencies :: [Dependency] -> Dependencies
+toDependencies dependencies = dependencies
+  |> map (\ dependency ->
+    ( dependencyPackage dependency
+    , dependency
+      |> dependencyConstraint
+      |> Tagged.untag
+      |> Text.unpack
+      |> parse
+      |> Maybe.fromJust
+    ))
+  |> Map.fromListWith Cabal.intersectVersionRanges
+  |> Map.map (\ versionRange -> versionRange
+    |> Cabal.simplifyVersionRange
+    |> Cabal.display
+    |> Text.pack
+    |> Tagged.Tagged)
+
+
+parse :: Cabal.Text a => String -> Maybe a
+parse string = string
+  |> Cabal.readP_to_S Cabal.parse
+  |> filter (\ (_, leftover) -> null leftover)
+  |> map fst
+  |> Maybe.listToMaybe
 
 
 toDependency :: Cabal.Dependency -> Dependency
@@ -696,6 +730,7 @@ toExecutable (executable, (conditions, constraints)) = Executable
     |> Cabal.targetBuildDepends
     |> map toDependency
     |> (++ map toDependency constraints)
+    |> toDependencies
   }
 
 
@@ -710,6 +745,7 @@ toTest (test, (conditions, constraints)) = Test
     |> Cabal.targetBuildDepends
     |> map toDependency
     |> (++ map toDependency constraints)
+    |> toDependencies
   }
 
 
@@ -727,6 +763,7 @@ toBenchmark (benchmark, (conditions, constraints)) = Benchmark
     |> Cabal.targetBuildDepends
     |> map toDependency
     |> (++ map toDependency constraints)
+    |> toDependencies
   }
 
 
