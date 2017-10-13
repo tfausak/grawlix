@@ -106,13 +106,10 @@ data Repo = Repo
 
 data Library = Library
   { libraryName :: LibraryName
-  , libraryConditions :: [Cabal.Condition Cabal.ConfVar]
+  , libraryConditions :: Condition
   , libraryModules :: [ModuleName]
   , libraryDependencies :: Dependencies
   } deriving Show
-
-
-type Dependencies = Map.Map PackageName Constraint
 
 
 data Dependency = Dependency
@@ -123,21 +120,21 @@ data Dependency = Dependency
 
 data Executable = Executable
   { executableName :: ExecutableName
-  , executableConditions :: [Cabal.Condition Cabal.ConfVar]
+  , executableConditions :: Condition
   , executableDependencies :: Dependencies
   } deriving Show
 
 
 data Test = Test
   { testName :: TestName
-  , testConditions :: [Cabal.Condition Cabal.ConfVar]
+  , testConditions :: Condition
   , testDependencies :: Dependencies
   } deriving Show
 
 
 data Benchmark = Benchmark
   { benchmarkName :: BenchmarkName
-  , benchmarkConditions :: [Cabal.Condition Cabal.ConfVar]
+  , benchmarkConditions :: Condition
   , benchmarkDependencies :: Dependencies
   } deriving Show
 
@@ -145,8 +142,10 @@ data Benchmark = Benchmark
 type BenchmarkName = Tagged.Tagged "ModuleName" Text.Text
 type Category = Tagged.Tagged "Category" Text.Text
 type CategoryId = Tagged.Tagged "CategoryId" Int.Int32
+type Condition = Tagged.Tagged "Condition" Text.Text
 type Constraint = Tagged.Tagged "Constraint" Text.Text
 type ConstraintId = Tagged.Tagged "ConstraintId" Int.Int32
+type Dependencies = Map.Map PackageName Constraint
 type ExecutableName = Tagged.Tagged "ModuleName" Text.Text
 type LibraryName = Tagged.Tagged "ModuleName" Text.Text
 type License = Tagged.Tagged "License" Text.Text
@@ -656,7 +655,7 @@ toLibrary
   -> Library
 toLibrary name (library, (conditions, constraints)) = Library
   { libraryName = name
-  , libraryConditions = conditions
+  , libraryConditions = toCondition conditions
   , libraryModules = library
     |> Cabal.exposedModules
     |> map (\ moduleName -> moduleName
@@ -670,6 +669,69 @@ toLibrary name (library, (conditions, constraints)) = Library
     |> (++ map toDependency constraints)
     |> toDependencies
   }
+
+
+toCondition :: [Cabal.Condition Cabal.ConfVar] -> Condition
+toCondition conditions = conditions
+  |> combineConditions
+  |> simplifyCondition
+  |> renderCondition
+  |> Text.pack
+  |> Tagged.Tagged
+
+
+combineConditions
+  :: [Cabal.Condition Cabal.ConfVar] -> Cabal.Condition Cabal.ConfVar
+combineConditions conditions = foldr Cabal.CAnd (Cabal.Lit True) conditions
+
+
+simplifyCondition
+  :: Cabal.Condition Cabal.ConfVar -> Cabal.Condition Cabal.ConfVar
+simplifyCondition condition = case condition of
+  Cabal.CNot this -> case simplifyCondition this of
+    Cabal.Lit boolean -> Cabal.Lit (not boolean)
+    Cabal.CNot that -> that
+    that -> Cabal.CNot that
+  Cabal.CAnd left right ->
+    case (simplifyCondition left, simplifyCondition right) of
+      (_, Cabal.Lit False) -> Cabal.Lit False
+      (Cabal.Lit False, _) -> Cabal.Lit False
+      (newLeft, Cabal.Lit True) -> newLeft
+      (Cabal.Lit True, newRight) -> newRight
+      (newLeft, newRight) -> Cabal.CAnd newLeft newRight
+  Cabal.COr left right ->
+    case (simplifyCondition left, simplifyCondition right) of
+      (_, Cabal.Lit True) -> Cabal.Lit True
+      (Cabal.Lit True, _) -> Cabal.Lit True
+      (newLeft, Cabal.Lit False) -> newLeft
+      (Cabal.Lit False, newRight) -> newRight
+      (newLeft, newRight) -> Cabal.COr newLeft newRight
+  _ -> condition
+
+
+renderCondition :: Cabal.Condition Cabal.ConfVar -> String
+renderCondition condition = case condition of
+  Cabal.CAnd left right ->
+    concat ["(", renderCondition left, " && ", renderCondition right, ")"]
+  Cabal.CNot this -> concat ["!(", renderCondition this, ")"]
+  Cabal.COr left right ->
+    unwords ["(", renderCondition left, " || ", renderCondition right, ")"]
+  Cabal.Lit boolean -> if boolean then "true" else "false"
+  Cabal.Var confVar -> renderConfVar confVar
+
+
+renderConfVar :: Cabal.ConfVar -> String
+renderConfVar confVar = case confVar of
+  Cabal.Arch arch -> concat ["arch(", Cabal.display arch, ")"]
+  Cabal.Flag (Cabal.FlagName flag) -> concat ["flag(", flag, ")"]
+  Cabal.Impl compiler constraint -> concat
+    [ "impl("
+    , Cabal.display compiler
+    , " "
+    , constraint |> Cabal.simplifyVersionRange |> Cabal.display
+    , ")"
+    ]
+  Cabal.OS os -> concat ["os(", Cabal.display os, ")"]
 
 
 toDependencies :: [Dependency] -> Dependencies
@@ -699,7 +761,7 @@ toExecutable
   -> Executable
 toExecutable (executable, (conditions, constraints)) = Executable
   { executableName = executable |> Cabal.exeName |> Text.pack |> Tagged.Tagged
-  , executableConditions = conditions
+  , executableConditions = toCondition conditions
   , executableDependencies = executable
     |> Cabal.buildInfo
     |> Cabal.targetBuildDepends
@@ -714,7 +776,7 @@ toTest
   -> Test
 toTest (test, (conditions, constraints)) = Test
   { testName = test |> Cabal.testName |> Text.pack |> Tagged.Tagged
-  , testConditions = conditions
+  , testConditions = toCondition conditions
   , testDependencies = test
     |> Cabal.testBuildInfo
     |> Cabal.targetBuildDepends
@@ -732,7 +794,7 @@ toBenchmark (benchmark, (conditions, constraints)) = Benchmark
     |> Cabal.benchmarkName
     |> Text.pack
     |> Tagged.Tagged
-  , benchmarkConditions = conditions
+  , benchmarkConditions = toCondition conditions
   , benchmarkDependencies = benchmark
     |> Cabal.benchmarkBuildInfo
     |> Cabal.targetBuildDepends
