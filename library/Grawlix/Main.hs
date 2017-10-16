@@ -75,70 +75,58 @@ handlePackage connection package = do
   logPackage package
 
   let name = packageName package
-  runQuery connection insertPackageName name
+  nameId <- runQuery connection insertPackageName name
 
   let version = packageVersion package
-  runQuery connection insertVersion version
+  versionId <- runQuery connection insertVersion version
 
   let license = packageLicense package
-  runQuery connection insertLicense license
+  licenseId <- runQuery connection insertLicense license
 
   let revision = packageRevision package
-  runQuery connection insertPackage
-    ( name
-    , version
+  packageId <- runQuery connection insertPackage
+    ( nameId
+    , versionId
     , revision
-    , license
+    , licenseId
     , packageSynopsis package
     , packageDescription package
     , packageUrl package
     )
 
-  packageId <- runQuery connection selectPackageId (name, version, revision)
-
   package |> packageCategories |> mapM_ (\ category -> do
-    runQuery connection insertCategory category
-    categoryId <- runQuery connection selectCategoryId category
+    categoryId <- runQuery connection insertCategory category
     runQuery connection insertCategoryPackage (categoryId, packageId))
 
   package |> packageRepos |> mapM_ (\ repo -> do
     let kind = repoKind repo
-    runQuery connection insertRepoKind kind
-    kindId <- runQuery connection selectRepoKindId kind
+    kindId <- runQuery connection insertRepoKind kind
 
     let type_ = repoType repo
-    runQuery connection insertRepoType type_
-    typeId <- runQuery connection selectRepoTypeId type_
+    typeId <- runQuery connection insertRepoType type_
 
     let url = repoUrl repo
-    runQuery connection insertRepo (kindId, typeId, url)
-    repoId <- runQuery connection selectRepoId (kindId, typeId, url)
+    repoId <- runQuery connection insertRepo (kindId, typeId, url)
     runQuery connection insertPackageRepo (packageId, repoId))
 
   package |> packageLibraries |> mapM_ (\ library -> do
     let Library { libraryName, libraryConditions } = library
-    runQuery connection insertLibrary
-      (packageId, libraryName, libraryConditions)
-    libraryId <- runQuery connection selectLibraryId
+    libraryId <- runQuery connection insertLibrary
       (packageId, libraryName, libraryConditions)
 
     library |> libraryModules |> mapM_ (\ moduleName -> do
-      runQuery connection insertModuleName moduleName
-      moduleNameId <- runQuery connection selectModuleNameId moduleName
+      moduleNameId <- runQuery connection insertModuleName moduleName
       runQuery connection insertLibraryModuleName (libraryId, moduleNameId))
 
     library
       |> libraryDependencies
       |> Map.toAscList
       |> mapM_ (\ (packageName, constraint) -> do
-        runQuery connection insertConstraint constraint
-        constraintId <- runQuery connection selectConstraintId constraint
+        constraintId <- runQuery connection insertConstraint constraint
 
-        runQuery connection insertPackageName packageName
-        packageNameId <- runQuery connection selectPackageNameId packageName
+        packageNameId <- runQuery connection insertPackageName packageName
 
-        runQuery connection insertDependency (constraintId, packageNameId)
-        dependencyId <- runQuery connection selectDependencyId
+        dependencyId <- runQuery connection insertDependency
           (constraintId, packageNameId)
         runQuery connection insertDependencyLibrary (dependencyId, libraryId)))
 
