@@ -1,7 +1,8 @@
-module QQ where
+module Grawlix.Quotes where
 
 import qualified Language.Haskell.TH.Quote as TH
 import qualified Language.Haskell.TH.Syntax as TH
+
 
 string :: TH.QuasiQuoter
 string = TH.QuasiQuoter
