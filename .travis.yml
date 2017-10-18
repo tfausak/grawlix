@@ -1,6 +1,32 @@
-language: node_js
-node_js:
-  - '8'
+language: generic
+
+addons:
+  apt:
+    packages:
+      - libgmp-dev
+
 cache:
   directories:
-    - node_modules
+    - $HOME/.local/bin
+    - $HOME/.stack
+
+before_install:
+  - |
+    if ! test -f "$HOME/.local/bin/stack"
+    then
+      curl --location 'https://www.stackage.org/stack/linux-x86_64' > stack.tar.gz
+      gunzip stack.tar.gz
+      tar --extract --file stack.tar --strip-components 1
+      mkdir --parents "$HOME/.local/bin"
+      mv stack "$HOME/.local/bin/"
+      rm stack.tar
+    fi
+    stack --version
+
+install:
+  - stack setup
+  - stack build --only-dependencies
+
+script:
+  - stack build --pedantic
+  - stack sdist --pvp-bounds both

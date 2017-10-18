@@ -1,0 +1,53 @@
+name: grawlix
+version: 0.0.0
+
+category: Documentation
+description: Grawlix lets you comment on Haskell documentation.
+extra-source-files:
+  - CHANGELOG.markdown
+  - migrations/*.sql
+  - README.markdown
+license-file: LICENSE.markdown
+license: MIT
+maintainer: Taylor Fausak
+synopsis: Comment on Haskell documentation.
+
+dependencies:
+  - base
+ghc-options:
+  - -Wall
+
+library:
+  dependencies:
+    - base16-bytestring
+    - base64-bytestring
+    - bytestring
+    - Cabal
+    - containers
+    - contravariant
+    - contravariant-extras
+    - directory
+    - filepath
+    - flow
+    - hasql
+    - hasql-migration
+    - hasql-transaction
+    - http-client
+    - http-client-tls
+    - http-types
+    - tagged
+    - tar
+    - template-haskell
+    - text
+    - zlib
+  source-dirs: library
+
+executables:
+  grawlix-sync:
+    dependencies:
+      - grawlix
+    ghc-options:
+      - -rtsopts
+      - -threaded
+    source-dirs: executables
+    main: grawlix-sync.hs
