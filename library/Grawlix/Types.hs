@@ -68,7 +68,9 @@ data Benchmark = Benchmark
   } deriving Show
 
 
+type BenchmarkId = Tagged.Tagged "BenchmarkId" Int.Int32
 type BenchmarkName = Tagged.Tagged "BenchmarkName" Text.Text
+type BenchmarkNameId = Tagged.Tagged "BenchmarkNameId" Int.Int32
 type Category = Tagged.Tagged "Category" Text.Text
 type CategoryId = Tagged.Tagged "CategoryId" Int.Int32
 type Condition = Tagged.Tagged "Condition" Text.Text

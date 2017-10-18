@@ -184,14 +184,12 @@ handlePackage connection package = do
     let Test { testName, testCondition } = test
 
     runQuery connection insertTestName testName
-    testNameId <- runQuery connection selectTestNameId
-      testName
+    testNameId <- runQuery connection selectTestNameId testName
 
     runQuery connection insertCondition testCondition
     conditionId <- runQuery connection selectConditionId testCondition
 
-    runQuery connection insertTest
-      (packageId, testNameId, conditionId)
+    runQuery connection insertTest (packageId, testNameId, conditionId)
     testId <- runQuery connection selectTestId
       (packageId, testNameId, conditionId)
 
@@ -209,10 +207,38 @@ handlePackage connection package = do
         dependencyId <- runQuery connection selectDependencyId
           (constraintId, packageNameId)
 
-        runQuery connection insertDependencyTest
-          (dependencyId, testId)))
+        runQuery connection insertDependencyTest (dependencyId, testId)))
 
-  -- TODO: More stuff.
+  package |> packageBenchmarks |> mapM_ (\ benchmark -> do
+    let Benchmark { benchmarkName, benchmarkCondition } = benchmark
+
+    runQuery connection insertBenchmarkName benchmarkName
+    benchmarkNameId <- runQuery connection selectBenchmarkNameId benchmarkName
+
+    runQuery connection insertCondition benchmarkCondition
+    conditionId <- runQuery connection selectConditionId benchmarkCondition
+
+    runQuery connection insertBenchmark
+      (packageId, benchmarkNameId, conditionId)
+    benchmarkId <- runQuery connection selectBenchmarkId
+      (packageId, benchmarkNameId, conditionId)
+
+    benchmark
+      |> benchmarkDependencies
+      |> Map.toAscList
+      |> mapM_ (\ (packageName, constraint) -> do
+        runQuery connection insertConstraint constraint
+        constraintId <- runQuery connection selectConstraintId constraint
+
+        runQuery connection insertPackageName packageName
+        packageNameId <- runQuery connection selectPackageNameId packageName
+
+        runQuery connection insertDependency (constraintId, packageNameId)
+        dependencyId <- runQuery connection selectDependencyId
+          (constraintId, packageNameId)
+
+        runQuery connection insertDependencyBenchmark
+          (dependencyId, benchmarkId)))
 
 
 logPackage :: Package -> IO ()

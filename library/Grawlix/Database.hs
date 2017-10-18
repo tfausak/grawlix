@@ -48,6 +48,64 @@ insertDependencyLibrary = makeQuery
   Sql.Decode.unit
 
 
+insertBenchmarkName :: Sql.Query BenchmarkName ()
+insertBenchmarkName = makeQuery
+  [Quotes.string|
+    insert into benchmark_names ( content )
+    values ( $1 )
+    on conflict do nothing
+  |]
+  taggedTextParam
+  Sql.Decode.unit
+
+
+selectBenchmarkNameId :: Sql.Query BenchmarkName BenchmarkNameId
+selectBenchmarkNameId = makeQuery
+  [Quotes.string|
+    select id
+    from benchmark_names
+    where content = $1
+  |]
+  taggedTextParam
+  idResult
+
+
+insertBenchmark :: Sql.Query (PackageId, BenchmarkNameId, ConditionId) ()
+insertBenchmark = makeQuery
+  [Quotes.string|
+    insert into benchmarks ( package_id, benchmark_name_id, condition_id )
+    values ( $1, $2, $3 )
+    on conflict do nothing
+  |]
+  (Contravariant.contrazip3 idParam idParam idParam)
+  Sql.Decode.unit
+
+
+selectBenchmarkId
+  :: Sql.Query (PackageId, BenchmarkNameId, ConditionId) BenchmarkId
+selectBenchmarkId = makeQuery
+  [Quotes.string|
+    select id
+    from benchmarks
+    where package_id = $1
+    and benchmark_name_id = $2
+    and condition_id = $3
+  |]
+  (Contravariant.contrazip3 idParam idParam idParam)
+  idResult
+
+
+insertDependencyBenchmark :: Sql.Query (DependencyId, BenchmarkId) ()
+insertDependencyBenchmark = makeQuery
+  [Quotes.string|
+    insert into dependencies_benchmarks ( dependency_id, benchmark_id )
+    values ( $1, $2 )
+    on conflict do nothing
+  |]
+  (Contravariant.contrazip2 idParam idParam)
+  Sql.Decode.unit
+
+
 insertTestName :: Sql.Query TestName ()
 insertTestName = makeQuery
   [Quotes.string|
