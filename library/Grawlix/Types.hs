@@ -35,7 +35,7 @@ data Repo = Repo
 
 data Library = Library
   { libraryName :: LibraryName
-  , libraryConditions :: Conditions
+  , libraryCondition :: Condition
   , libraryModules :: [ModuleName]
   , libraryDependencies :: Dependencies
   } deriving Show
@@ -49,21 +49,21 @@ data Dependency = Dependency
 
 data Executable = Executable
   { executableName :: ExecutableName
-  , executableConditions :: Conditions
+  , executableCondition :: Condition
   , executableDependencies :: Dependencies
   } deriving Show
 
 
 data Test = Test
   { testName :: TestName
-  , testConditions :: Conditions
+  , testCondition :: Condition
   , testDependencies :: Dependencies
   } deriving Show
 
 
 data Benchmark = Benchmark
   { benchmarkName :: BenchmarkName
-  , benchmarkConditions :: Conditions
+  , benchmarkCondition :: Condition
   , benchmarkDependencies :: Dependencies
   } deriving Show
 
@@ -71,7 +71,8 @@ data Benchmark = Benchmark
 type BenchmarkName = Tagged.Tagged "BenchmarkName" Text.Text
 type Category = Tagged.Tagged "Category" Text.Text
 type CategoryId = Tagged.Tagged "CategoryId" Int.Int32
-type Conditions = Tagged.Tagged "Conditions" Text.Text
+type Condition = Tagged.Tagged "Condition" Text.Text
+type ConditionId = Tagged.Tagged "ConditionId" Int.Int32
 type Constraint = Tagged.Tagged "Constraint" Text.Text
 type ConstraintId = Tagged.Tagged "ConstraintId" Int.Int32
 type Dependencies = Map.Map PackageName Constraint

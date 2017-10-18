@@ -116,14 +116,17 @@ handlePackage connection package = do
     runQuery connection insertPackageRepo (packageId, repoId))
 
   package |> packageLibraries |> mapM_ (\ library -> do
-    let Library { libraryName, libraryConditions } = library
+    let Library { libraryName, libraryCondition } = library
+
     runQuery connection insertLibraryName libraryName
     libraryNameId <- runQuery connection selectLibraryName libraryName
 
-    runQuery connection insertLibrary
-      (packageId, libraryNameId, libraryConditions)
+    runQuery connection insertCondition libraryCondition
+    conditionId <- runQuery connection selectConditionId libraryCondition
+
+    runQuery connection insertLibrary (packageId, libraryNameId, conditionId)
     libraryId <- runQuery connection selectLibraryId
-      (packageId, libraryNameId, libraryConditions)
+      (packageId, libraryNameId, conditionId)
 
     library |> libraryModules |> mapM_ (\ moduleName -> do
       runQuery connection insertModuleName moduleName
@@ -291,7 +294,7 @@ toLibrary
   -> Library
 toLibrary name (library, (conditions, constraints)) = Library
   { libraryName = name
-  , libraryConditions = toConditions conditions
+  , libraryCondition = toCondition conditions
   , libraryModules = library
     |> Cabal.exposedModules
     |> map (\ moduleName -> moduleName
@@ -307,8 +310,8 @@ toLibrary name (library, (conditions, constraints)) = Library
   }
 
 
-toConditions :: [Cabal.Condition Cabal.ConfVar] -> Conditions
-toConditions conditions = conditions
+toCondition :: [Cabal.Condition Cabal.ConfVar] -> Condition
+toCondition conditions = conditions
   |> combineConditions
   |> simplifyCondition
   |> renderCondition
@@ -397,7 +400,7 @@ toExecutable
   -> Executable
 toExecutable (executable, (conditions, constraints)) = Executable
   { executableName = executable |> Cabal.exeName |> Text.pack |> Tagged.Tagged
-  , executableConditions = toConditions conditions
+  , executableCondition = toCondition conditions
   , executableDependencies = executable
     |> Cabal.buildInfo
     |> Cabal.targetBuildDepends
@@ -412,7 +415,7 @@ toTest
   -> Test
 toTest (test, (conditions, constraints)) = Test
   { testName = test |> Cabal.testName |> Text.pack |> Tagged.Tagged
-  , testConditions = toConditions conditions
+  , testCondition = toCondition conditions
   , testDependencies = test
     |> Cabal.testBuildInfo
     |> Cabal.targetBuildDepends
@@ -430,7 +433,7 @@ toBenchmark (benchmark, (conditions, constraints)) = Benchmark
     |> Cabal.benchmarkName
     |> Text.pack
     |> Tagged.Tagged
-  , benchmarkConditions = toConditions conditions
+  , benchmarkCondition = toCondition conditions
   , benchmarkDependencies = benchmark
     |> Cabal.benchmarkBuildInfo
     |> Cabal.targetBuildDepends
