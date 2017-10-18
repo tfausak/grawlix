@@ -117,10 +117,13 @@ handlePackage connection package = do
 
   package |> packageLibraries |> mapM_ (\ library -> do
     let Library { libraryName, libraryConditions } = library
+    runQuery connection insertLibraryName libraryName
+    libraryNameId <- runQuery connection selectLibraryName libraryName
+
     runQuery connection insertLibrary
-      (packageId, libraryName, libraryConditions)
+      (packageId, libraryNameId, libraryConditions)
     libraryId <- runQuery connection selectLibraryId
-      (packageId, libraryName, libraryConditions)
+      (packageId, libraryNameId, libraryConditions)
 
     library |> libraryModules |> mapM_ (\ moduleName -> do
       runQuery connection insertModuleName moduleName

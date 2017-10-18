@@ -48,27 +48,49 @@ insertDependencyLibrary = makeQuery
   Sql.Decode.unit
 
 
-insertLibrary :: Sql.Query (PackageId, LibraryName, Conditions) ()
-insertLibrary = makeQuery
+insertLibraryName :: Sql.Query LibraryName ()
+insertLibraryName = makeQuery
   [Quotes.string|
-    insert into libraries ( package_id, name, conditions )
-    values ( $1, $2, $3 )
+    insert into library_names ( content )
+    values ( $1 )
     on conflict do nothing
   |]
-  (Contravariant.contrazip3 idParam taggedTextParam taggedTextParam)
+  taggedTextParam
   Sql.Decode.unit
 
 
-selectLibraryId :: Sql.Query (PackageId, LibraryName, Conditions) LibraryId
+selectLibraryNameId :: Sql.Query LibraryName LibraryNameId
+selectLibraryNameId = makeQuery
+  [Quotes.string|
+    select id
+    from library_names
+    where content = $1
+  |]
+  taggedTextParam
+  idResult
+
+
+insertLibrary :: Sql.Query (PackageId, LibraryNameId, Conditions) ()
+insertLibrary = makeQuery
+  [Quotes.string|
+    insert into libraries ( package_id, library_name_id, conditions )
+    values ( $1, $2, $3 )
+    on conflict do nothing
+  |]
+  (Contravariant.contrazip3 idParam idParam taggedTextParam)
+  Sql.Decode.unit
+
+
+selectLibraryId :: Sql.Query (PackageId, LibraryNameId, Conditions) LibraryId
 selectLibraryId = makeQuery
   [Quotes.string|
     select id
     from libraries
     where package_id = $1
-    and name = $2
+    and library_name_id = $2
     and conditions = $3
   |]
-  (Contravariant.contrazip3 idParam taggedTextParam taggedTextParam)
+  (Contravariant.contrazip3 idParam idParam taggedTextParam)
   idResult
 
 
