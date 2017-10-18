@@ -43,11 +43,11 @@ library:
   source-dirs: library
 
 executables:
-  grawlix:
+  grawlix-sync:
     dependencies:
       - grawlix
     ghc-options:
       - -rtsopts
       - -threaded
     source-dirs: executables
-    main: Main.hs
+    main: grawlix-sync.hs

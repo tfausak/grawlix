@@ -1,7 +1,8 @@
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE PolyKinds #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
-module Grawlix.Main where
+module Grawlix.Sync where
 
 import Flow ((|>))
 import Grawlix.Database
@@ -11,11 +12,13 @@ import qualified Codec.Archive.Tar as Tar
 import qualified Codec.Compression.GZip as Gzip
 import qualified Control.Arrow as Arrow
 import qualified Control.Exception as Exception
+import qualified Control.Monad as Monad
 import qualified Data.ByteString as Bytes
 import qualified Data.ByteString.Base16 as Base16
 import qualified Data.ByteString.Base64 as Base64
 import qualified Data.ByteString.Lazy as LazyBytes
 import qualified Data.Foldable as Foldable
+import qualified Data.Functor as Functor
 import qualified Data.Int as Int
 import qualified Data.List as List
 import qualified Data.Map as Map
@@ -72,177 +75,185 @@ main = do
 
 handlePackage :: Sql.Connection -> Package -> IO ()
 handlePackage connection package = do
-  logPackage package
-
   let name = packageName package
-  runQuery connection insertPackageName name
-
   let version = packageVersion package
-  runQuery connection insertVersion version
-
-  let license = packageLicense package
-  runQuery connection insertLicense license
-
   let revision = packageRevision package
-  runQuery connection insertPackage
-    ( name
-    , version
-    , revision
-    , license
-    , packageSynopsis package
-    , packageDescription package
-    , packageUrl package
-    )
+  exists <- Exception.catch
+    (do
+      Functor.void
+        (runQuery connection selectPackageId (name, version, revision))
+      pure True)
+    (\ (_ :: Exception.IOException) -> pure False)
 
-  packageId <- runQuery connection selectPackageId (name, version, revision)
+  logPackage package exists
 
-  package |> packageCategories |> mapM_ (\ category -> do
-    runQuery connection insertCategory category
-    categoryId <- runQuery connection selectCategoryId category
-    runQuery connection insertCategoryPackage (categoryId, packageId))
+  Monad.unless exists (do
+    runQuery connection insertPackageName name
+    runQuery connection insertVersion version
+    let license = packageLicense package
+    runQuery connection insertLicense license
 
-  package |> packageRepos |> mapM_ (\ repo -> do
-    let kind = repoKind repo
-    runQuery connection insertRepoKind kind
-    kindId <- runQuery connection selectRepoKindId kind
+    runQuery connection insertPackage
+      ( name
+      , version
+      , revision
+      , license
+      , packageSynopsis package
+      , packageDescription package
+      , packageUrl package
+      )
 
-    let type_ = repoType repo
-    runQuery connection insertRepoType type_
-    typeId <- runQuery connection selectRepoTypeId type_
+    packageId <- runQuery connection selectPackageId (name, version, revision)
 
-    let url = repoUrl repo
-    runQuery connection insertRepo (kindId, typeId, url)
-    repoId <- runQuery connection selectRepoId (kindId, typeId, url)
-    runQuery connection insertPackageRepo (packageId, repoId))
+    package |> packageCategories |> mapM_ (\ category -> do
+      runQuery connection insertCategory category
+      categoryId <- runQuery connection selectCategoryId category
+      runQuery connection insertCategoryPackage (categoryId, packageId))
 
-  package |> packageLibraries |> mapM_ (\ library -> do
-    let Library { libraryName, libraryCondition } = library
+    package |> packageRepos |> mapM_ (\ repo -> do
+      let kind = repoKind repo
+      runQuery connection insertRepoKind kind
+      kindId <- runQuery connection selectRepoKindId kind
 
-    runQuery connection insertLibraryName libraryName
-    libraryNameId <- runQuery connection selectLibraryNameId libraryName
+      let type_ = repoType repo
+      runQuery connection insertRepoType type_
+      typeId <- runQuery connection selectRepoTypeId type_
 
-    runQuery connection insertCondition libraryCondition
-    conditionId <- runQuery connection selectConditionId libraryCondition
+      let url = repoUrl repo
+      runQuery connection insertRepo (kindId, typeId, url)
+      repoId <- runQuery connection selectRepoId (kindId, typeId, url)
+      runQuery connection insertPackageRepo (packageId, repoId))
 
-    runQuery connection insertLibrary (packageId, libraryNameId, conditionId)
-    libraryId <- runQuery connection selectLibraryId
-      (packageId, libraryNameId, conditionId)
+    package |> packageLibraries |> mapM_ (\ library -> do
+      let Library { libraryName, libraryCondition } = library
 
-    library |> libraryModules |> mapM_ (\ moduleName -> do
-      runQuery connection insertModuleName moduleName
-      moduleNameId <- runQuery connection selectModuleNameId moduleName
-      runQuery connection insertLibraryModuleName (libraryId, moduleNameId))
+      runQuery connection insertLibraryName libraryName
+      libraryNameId <- runQuery connection selectLibraryNameId libraryName
 
-    library
-      |> libraryDependencies
-      |> Map.toAscList
-      |> mapM_ (\ (packageName, constraint) -> do
-        runQuery connection insertConstraint constraint
-        constraintId <- runQuery connection selectConstraintId constraint
+      runQuery connection insertCondition libraryCondition
+      conditionId <- runQuery connection selectConditionId libraryCondition
 
-        runQuery connection insertPackageName packageName
-        packageNameId <- runQuery connection selectPackageNameId packageName
+      runQuery connection insertLibrary (packageId, libraryNameId, conditionId)
+      libraryId <- runQuery connection selectLibraryId
+        (packageId, libraryNameId, conditionId)
 
-        runQuery connection insertDependency (constraintId, packageNameId)
-        dependencyId <- runQuery connection selectDependencyId
-          (constraintId, packageNameId)
-        runQuery connection insertDependencyLibrary (dependencyId, libraryId)))
+      library |> libraryModules |> mapM_ (\ moduleName -> do
+        runQuery connection insertModuleName moduleName
+        moduleNameId <- runQuery connection selectModuleNameId moduleName
+        runQuery connection insertLibraryModuleName (libraryId, moduleNameId))
 
-  package |> packageExecutables |> mapM_ (\ executable -> do
-    let Executable { executableName, executableCondition } = executable
+      library
+        |> libraryDependencies
+        |> Map.toAscList
+        |> mapM_ (\ (packageName, constraint) -> do
+          runQuery connection insertConstraint constraint
+          constraintId <- runQuery connection selectConstraintId constraint
 
-    runQuery connection insertExecutableName executableName
-    executableNameId <- runQuery connection selectExecutableNameId
-      executableName
+          runQuery connection insertPackageName packageName
+          packageNameId <- runQuery connection selectPackageNameId packageName
 
-    runQuery connection insertCondition executableCondition
-    conditionId <- runQuery connection selectConditionId executableCondition
+          runQuery connection insertDependency (constraintId, packageNameId)
+          dependencyId <- runQuery connection selectDependencyId
+            (constraintId, packageNameId)
+          runQuery connection insertDependencyLibrary
+            (dependencyId, libraryId)))
 
-    runQuery connection insertExecutable
-      (packageId, executableNameId, conditionId)
-    executableId <- runQuery connection selectExecutableId
-      (packageId, executableNameId, conditionId)
+    package |> packageExecutables |> mapM_ (\ executable -> do
+      let Executable { executableName, executableCondition } = executable
 
-    executable
-      |> executableDependencies
-      |> Map.toAscList
-      |> mapM_ (\ (packageName, constraint) -> do
-        runQuery connection insertConstraint constraint
-        constraintId <- runQuery connection selectConstraintId constraint
+      runQuery connection insertExecutableName executableName
+      executableNameId <- runQuery connection selectExecutableNameId
+        executableName
 
-        runQuery connection insertPackageName packageName
-        packageNameId <- runQuery connection selectPackageNameId packageName
+      runQuery connection insertCondition executableCondition
+      conditionId <- runQuery connection selectConditionId executableCondition
 
-        runQuery connection insertDependency (constraintId, packageNameId)
-        dependencyId <- runQuery connection selectDependencyId
-          (constraintId, packageNameId)
+      runQuery connection insertExecutable
+        (packageId, executableNameId, conditionId)
+      executableId <- runQuery connection selectExecutableId
+        (packageId, executableNameId, conditionId)
 
-        runQuery connection insertDependencyExecutable
-          (dependencyId, executableId)))
+      executable
+        |> executableDependencies
+        |> Map.toAscList
+        |> mapM_ (\ (packageName, constraint) -> do
+          runQuery connection insertConstraint constraint
+          constraintId <- runQuery connection selectConstraintId constraint
 
-  package |> packageTests |> mapM_ (\ test -> do
-    let Test { testName, testCondition } = test
+          runQuery connection insertPackageName packageName
+          packageNameId <- runQuery connection selectPackageNameId packageName
 
-    runQuery connection insertTestName testName
-    testNameId <- runQuery connection selectTestNameId testName
+          runQuery connection insertDependency (constraintId, packageNameId)
+          dependencyId <- runQuery connection selectDependencyId
+            (constraintId, packageNameId)
 
-    runQuery connection insertCondition testCondition
-    conditionId <- runQuery connection selectConditionId testCondition
+          runQuery connection insertDependencyExecutable
+            (dependencyId, executableId)))
 
-    runQuery connection insertTest (packageId, testNameId, conditionId)
-    testId <- runQuery connection selectTestId
-      (packageId, testNameId, conditionId)
+    package |> packageTests |> mapM_ (\ test -> do
+      let Test { testName, testCondition } = test
 
-    test
-      |> testDependencies
-      |> Map.toAscList
-      |> mapM_ (\ (packageName, constraint) -> do
-        runQuery connection insertConstraint constraint
-        constraintId <- runQuery connection selectConstraintId constraint
+      runQuery connection insertTestName testName
+      testNameId <- runQuery connection selectTestNameId testName
 
-        runQuery connection insertPackageName packageName
-        packageNameId <- runQuery connection selectPackageNameId packageName
+      runQuery connection insertCondition testCondition
+      conditionId <- runQuery connection selectConditionId testCondition
 
-        runQuery connection insertDependency (constraintId, packageNameId)
-        dependencyId <- runQuery connection selectDependencyId
-          (constraintId, packageNameId)
+      runQuery connection insertTest (packageId, testNameId, conditionId)
+      testId <- runQuery connection selectTestId
+        (packageId, testNameId, conditionId)
 
-        runQuery connection insertDependencyTest (dependencyId, testId)))
+      test
+        |> testDependencies
+        |> Map.toAscList
+        |> mapM_ (\ (packageName, constraint) -> do
+          runQuery connection insertConstraint constraint
+          constraintId <- runQuery connection selectConstraintId constraint
 
-  package |> packageBenchmarks |> mapM_ (\ benchmark -> do
-    let Benchmark { benchmarkName, benchmarkCondition } = benchmark
+          runQuery connection insertPackageName packageName
+          packageNameId <- runQuery connection selectPackageNameId packageName
 
-    runQuery connection insertBenchmarkName benchmarkName
-    benchmarkNameId <- runQuery connection selectBenchmarkNameId benchmarkName
+          runQuery connection insertDependency (constraintId, packageNameId)
+          dependencyId <- runQuery connection selectDependencyId
+            (constraintId, packageNameId)
 
-    runQuery connection insertCondition benchmarkCondition
-    conditionId <- runQuery connection selectConditionId benchmarkCondition
+          runQuery connection insertDependencyTest (dependencyId, testId)))
 
-    runQuery connection insertBenchmark
-      (packageId, benchmarkNameId, conditionId)
-    benchmarkId <- runQuery connection selectBenchmarkId
-      (packageId, benchmarkNameId, conditionId)
+    package |> packageBenchmarks |> mapM_ (\ benchmark -> do
+      let Benchmark { benchmarkName, benchmarkCondition } = benchmark
 
-    benchmark
-      |> benchmarkDependencies
-      |> Map.toAscList
-      |> mapM_ (\ (packageName, constraint) -> do
-        runQuery connection insertConstraint constraint
-        constraintId <- runQuery connection selectConstraintId constraint
+      runQuery connection insertBenchmarkName benchmarkName
+      benchmarkNameId <- runQuery connection selectBenchmarkNameId
+        benchmarkName
 
-        runQuery connection insertPackageName packageName
-        packageNameId <- runQuery connection selectPackageNameId packageName
+      runQuery connection insertCondition benchmarkCondition
+      conditionId <- runQuery connection selectConditionId benchmarkCondition
 
-        runQuery connection insertDependency (constraintId, packageNameId)
-        dependencyId <- runQuery connection selectDependencyId
-          (constraintId, packageNameId)
+      runQuery connection insertBenchmark
+        (packageId, benchmarkNameId, conditionId)
+      benchmarkId <- runQuery connection selectBenchmarkId
+        (packageId, benchmarkNameId, conditionId)
 
-        runQuery connection insertDependencyBenchmark
-          (dependencyId, benchmarkId)))
+      benchmark
+        |> benchmarkDependencies
+        |> Map.toAscList
+        |> mapM_ (\ (packageName, constraint) -> do
+          runQuery connection insertConstraint constraint
+          constraintId <- runQuery connection selectConstraintId constraint
+
+          runQuery connection insertPackageName packageName
+          packageNameId <- runQuery connection selectPackageNameId packageName
+
+          runQuery connection insertDependency (constraintId, packageNameId)
+          dependencyId <- runQuery connection selectDependencyId
+            (constraintId, packageNameId)
+
+          runQuery connection insertDependencyBenchmark
+            (dependencyId, benchmarkId))))
 
 
-logPackage :: Package -> IO ()
-logPackage package = Printf.printf "%s\t%s\t%d\n"
+logPackage :: Package -> Bool -> IO ()
+logPackage package exists = Printf.printf "%s\t%s\t%d\t%s\n"
   (package |> packageName |> Tagged.untag |> Text.unpack)
   (package
     |> packageVersion
@@ -250,6 +261,7 @@ logPackage package = Printf.printf "%s\t%s\t%d\n"
     |> map show
     |> List.intercalate ".")
   (package |> packageRevision |> Tagged.untag)
+  (if exists then "old" else "new")
 
 
 toPackage :: Cabal.GenericPackageDescription -> Package
