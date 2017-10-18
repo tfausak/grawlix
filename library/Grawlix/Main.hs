@@ -119,7 +119,7 @@ handlePackage connection package = do
     let Library { libraryName, libraryCondition } = library
 
     runQuery connection insertLibraryName libraryName
-    libraryNameId <- runQuery connection selectLibraryName libraryName
+    libraryNameId <- runQuery connection selectLibraryNameId libraryName
 
     runQuery connection insertCondition libraryCondition
     conditionId <- runQuery connection selectConditionId libraryCondition
