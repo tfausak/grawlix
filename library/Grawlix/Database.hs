@@ -48,6 +48,63 @@ insertDependencyLibrary = makeQuery
   Sql.Decode.unit
 
 
+insertTestName :: Sql.Query TestName ()
+insertTestName = makeQuery
+  [Quotes.string|
+    insert into test_names ( content )
+    values ( $1 )
+    on conflict do nothing
+  |]
+  taggedTextParam
+  Sql.Decode.unit
+
+
+selectTestNameId :: Sql.Query TestName TestNameId
+selectTestNameId = makeQuery
+  [Quotes.string|
+    select id
+    from test_names
+    where content = $1
+  |]
+  taggedTextParam
+  idResult
+
+
+insertTest :: Sql.Query (PackageId, TestNameId, ConditionId) ()
+insertTest = makeQuery
+  [Quotes.string|
+    insert into tests ( package_id, test_name_id, condition_id )
+    values ( $1, $2, $3 )
+    on conflict do nothing
+  |]
+  (Contravariant.contrazip3 idParam idParam idParam)
+  Sql.Decode.unit
+
+
+selectTestId :: Sql.Query (PackageId, TestNameId, ConditionId) TestId
+selectTestId = makeQuery
+  [Quotes.string|
+    select id
+    from tests
+    where package_id = $1
+    and test_name_id = $2
+    and condition_id = $3
+  |]
+  (Contravariant.contrazip3 idParam idParam idParam)
+  idResult
+
+
+insertDependencyTest :: Sql.Query (DependencyId, TestId) ()
+insertDependencyTest = makeQuery
+  [Quotes.string|
+    insert into dependencies_tests ( dependency_id, test_id )
+    values ( $1, $2 )
+    on conflict do nothing
+  |]
+  (Contravariant.contrazip2 idParam idParam)
+  Sql.Decode.unit
+
+
 insertExecutableName :: Sql.Query ExecutableName ()
 insertExecutableName = makeQuery
   [Quotes.string|

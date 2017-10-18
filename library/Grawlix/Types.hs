@@ -95,5 +95,7 @@ type RepoKindId = Tagged.Tagged "RepoKindId" Int.Int32
 type RepoType = Tagged.Tagged "RepoType" Text.Text
 type RepoTypeId = Tagged.Tagged "RepoTypeId" Int.Int32
 type Revision = Tagged.Tagged "Revision" Int.Int32
+type TestId = Tagged.Tagged "TestId" Int.Int32
 type TestName = Tagged.Tagged "TestName" Text.Text
+type TestNameId = Tagged.Tagged "TestNameId" Int.Int32
 type Version = Tagged.Tagged "Version" [Int.Int32]

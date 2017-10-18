@@ -180,6 +180,38 @@ handlePackage connection package = do
         runQuery connection insertDependencyExecutable
           (dependencyId, executableId)))
 
+  package |> packageTests |> mapM_ (\ test -> do
+    let Test { testName, testCondition } = test
+
+    runQuery connection insertTestName testName
+    testNameId <- runQuery connection selectTestNameId
+      testName
+
+    runQuery connection insertCondition testCondition
+    conditionId <- runQuery connection selectConditionId testCondition
+
+    runQuery connection insertTest
+      (packageId, testNameId, conditionId)
+    testId <- runQuery connection selectTestId
+      (packageId, testNameId, conditionId)
+
+    test
+      |> testDependencies
+      |> Map.toAscList
+      |> mapM_ (\ (packageName, constraint) -> do
+        runQuery connection insertConstraint constraint
+        constraintId <- runQuery connection selectConstraintId constraint
+
+        runQuery connection insertPackageName packageName
+        packageNameId <- runQuery connection selectPackageNameId packageName
+
+        runQuery connection insertDependency (constraintId, packageNameId)
+        dependencyId <- runQuery connection selectDependencyId
+          (constraintId, packageNameId)
+
+        runQuery connection insertDependencyTest
+          (dependencyId, testId)))
+
   -- TODO: More stuff.
 
 
