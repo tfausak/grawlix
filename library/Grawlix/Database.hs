@@ -48,6 +48,64 @@ insertDependencyLibrary = makeQuery
   Sql.Decode.unit
 
 
+insertExecutableName :: Sql.Query ExecutableName ()
+insertExecutableName = makeQuery
+  [Quotes.string|
+    insert into executable_names ( content )
+    values ( $1 )
+    on conflict do nothing
+  |]
+  taggedTextParam
+  Sql.Decode.unit
+
+
+selectExecutableNameId :: Sql.Query ExecutableName ExecutableNameId
+selectExecutableNameId = makeQuery
+  [Quotes.string|
+    select id
+    from executable_names
+    where content = $1
+  |]
+  taggedTextParam
+  idResult
+
+
+insertExecutable :: Sql.Query (PackageId, ExecutableNameId, ConditionId) ()
+insertExecutable = makeQuery
+  [Quotes.string|
+    insert into executables ( package_id, executable_name_id, condition_id )
+    values ( $1, $2, $3 )
+    on conflict do nothing
+  |]
+  (Contravariant.contrazip3 idParam idParam idParam)
+  Sql.Decode.unit
+
+
+selectExecutableId
+  :: Sql.Query (PackageId, ExecutableNameId, ConditionId) ExecutableId
+selectExecutableId = makeQuery
+  [Quotes.string|
+    select id
+    from executables
+    where package_id = $1
+    and executable_name_id = $2
+    and condition_id = $3
+  |]
+  (Contravariant.contrazip3 idParam idParam idParam)
+  idResult
+
+
+insertDependencyExecutable :: Sql.Query (DependencyId, ExecutableId) ()
+insertDependencyExecutable = makeQuery
+  [Quotes.string|
+    insert into dependencies_executables ( dependency_id, executable_id )
+    values ( $1, $2 )
+    on conflict do nothing
+  |]
+  (Contravariant.contrazip2 idParam idParam)
+  Sql.Decode.unit
+
+
 insertLibraryName :: Sql.Query LibraryName ()
 insertLibraryName = makeQuery
   [Quotes.string|
