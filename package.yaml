@@ -35,14 +35,28 @@ library:
     - http-client
     - http-client-tls
     - http-types
+    - servant-server
     - tagged
     - tar
     - template-haskell
     - text
+    - wai
+    - wai-extra
+    - warp
     - zlib
   source-dirs: library
 
 executables:
+
+  grawlix-server:
+    dependencies:
+      - grawlix
+    ghc-options:
+      - -rtsopts
+      - -threaded
+    source-dirs: executables
+    main: grawlix-server.hs
+
   grawlix-sync:
     dependencies:
       - grawlix

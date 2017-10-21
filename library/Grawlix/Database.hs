@@ -25,6 +25,15 @@ import qualified Hasql.Transaction.Sessions as Sql
 import qualified System.Environment as Environment
 
 
+pingQuery :: Sql.Query () Bool
+pingQuery = makeQuery
+  [Quotes.string|
+    select true
+  |]
+  Sql.Encode.unit
+  (Sql.Decode.bool |> Sql.Decode.value |> Sql.Decode.singleRow)
+
+
 selectDependencyId :: Sql.Query (ConstraintId, PackageNameId) DependencyId
 selectDependencyId = makeQuery
   [Quotes.string|
