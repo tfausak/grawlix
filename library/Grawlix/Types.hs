@@ -1,12 +1,21 @@
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE TypeSynonymInstances #-}
+
+{-# OPTIONS_GHC -Wno-orphans #-}
 
 module Grawlix.Types where
+
+import Flow ((|>))
 
 import qualified Data.Int as Int
 import qualified Data.Map as Map
 import qualified Data.Tagged as Tagged
 import qualified Data.Text as Text
+import qualified Distribution.Compat.ReadP as Cabal
+import qualified Distribution.Text as Cabal
 import qualified Distribution.Version as Cabal
+import qualified Web.HttpApiData as HttpApiData
 
 
 data Package = Package
@@ -101,3 +110,27 @@ type TestId = Tagged.Tagged "TestId" Int.Int32
 type TestName = Tagged.Tagged "TestName" Text.Text
 type TestNameId = Tagged.Tagged "TestNameId" Int.Int32
 type Version = Tagged.Tagged "Version" [Int.Int32]
+
+
+instance HttpApiData.FromHttpApiData PackageName where
+  parseUrlPiece urlPiece =
+    fmap Tagged.Tagged (HttpApiData.parseUrlPiece urlPiece)
+
+
+instance HttpApiData.FromHttpApiData Version where
+  parseUrlPiece urlPiece = urlPiece
+    |> Text.unpack
+    |> Cabal.readP_to_S Cabal.parse
+    |> filter (\ (_, leftover) -> null leftover)
+    |> map fst
+    |> (\ results -> case results of
+      [] -> "invalid version" |> Text.pack |> Left
+      version : _ -> version
+        |> Cabal.versionBranch
+        |> map intToInt32
+        |> Tagged.Tagged
+        |> Right)
+
+
+intToInt32 :: Int -> Int.Int32
+intToInt32 = fromIntegral

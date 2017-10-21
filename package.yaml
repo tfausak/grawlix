@@ -32,6 +32,7 @@ library:
     - hasql
     - hasql-migration
     - hasql-transaction
+    - http-api-data
     - http-client
     - http-client-tls
     - http-types

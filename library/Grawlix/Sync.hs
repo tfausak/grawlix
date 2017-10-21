@@ -19,7 +19,6 @@ import qualified Data.ByteString.Base64 as Base64
 import qualified Data.ByteString.Lazy as LazyBytes
 import qualified Data.Foldable as Foldable
 import qualified Data.Functor as Functor
-import qualified Data.Int as Int
 import qualified Data.List as List
 import qualified Data.Map as Map
 import qualified Data.Maybe as Maybe
@@ -686,10 +685,6 @@ fromEither :: Either left right -> Maybe right
 fromEither e = case e of
   Right r -> Just r
   _ -> Nothing
-
-
-intToInt32 :: Int -> Int.Int32
-intToInt32 = fromIntegral
 
 
 prepend :: a -> [a] -> [a]

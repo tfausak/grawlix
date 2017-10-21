@@ -71,6 +71,28 @@ selectVersions = makeQuery
     |> fmap (map Tagged.Tagged))
 
 
+selectRevisions :: Sql.Query (PackageName, Version) [Revision]
+selectRevisions = makeQuery
+  [Quotes.string|
+    select distinct packages.revision
+    from packages
+    inner join package_names
+    on package_names.id = packages.package_name_id
+    inner join versions
+    on versions.id = packages.version_id
+    where package_names.content = $1
+    and versions.content = $2
+    order by packages.revision asc
+  |]
+  (Contravariant.contrazip2
+    taggedTextParam
+    (Sql.Encode.int4 |> arrayOf |> contraUntag))
+  (Sql.Decode.int4
+    |> Sql.Decode.value
+    |> Sql.Decode.rowsList
+    |> fmap (map Tagged.Tagged))
+
+
 selectDependencyId :: Sql.Query (ConstraintId, PackageNameId) DependencyId
 selectDependencyId = makeQuery
   [Quotes.string|
