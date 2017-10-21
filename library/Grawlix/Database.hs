@@ -7,6 +7,7 @@ import Flow ((|>))
 import Grawlix.Types
 
 import qualified Contravariant.Extras as Contravariant
+import qualified Control.Monad as Monad
 import qualified Data.Functor.Contravariant as Contravariant
 import qualified Data.Int as Int
 import qualified Data.Maybe as Maybe
@@ -43,6 +44,28 @@ selectPackageNames = makeQuery
   |]
   Sql.Encode.unit
   (Sql.Decode.text
+    |> Sql.Decode.value
+    |> Sql.Decode.rowsList
+    |> fmap (map Tagged.Tagged))
+
+
+selectVersions :: Sql.Query PackageName [Version]
+selectVersions = makeQuery
+  [Quotes.string|
+    select distinct versions.content
+    from versions
+    inner join packages
+    on packages.version_id = versions.id
+    inner join package_names
+    on package_names.id = packages.package_name_id
+    where package_names.content = $1
+    order by versions.content asc
+  |]
+  taggedTextParam
+  (Sql.Decode.int4
+    |> Sql.Decode.arrayValue
+    |> Sql.Decode.arrayDimension Monad.replicateM
+    |> Sql.Decode.array
     |> Sql.Decode.value
     |> Sql.Decode.rowsList
     |> fmap (map Tagged.Tagged))
