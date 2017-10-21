@@ -34,6 +34,20 @@ pingQuery = makeQuery
   (Sql.Decode.bool |> Sql.Decode.value |> Sql.Decode.singleRow)
 
 
+selectPackageNames :: Sql.Query () [PackageName]
+selectPackageNames = makeQuery
+  [Quotes.string|
+    select distinct content
+    from package_names
+    order by content asc
+  |]
+  Sql.Encode.unit
+  (Sql.Decode.text
+    |> Sql.Decode.value
+    |> Sql.Decode.rowsList
+    |> fmap (map Tagged.Tagged))
+
+
 selectDependencyId :: Sql.Query (ConstraintId, PackageNameId) DependencyId
 selectDependencyId = makeQuery
   [Quotes.string|

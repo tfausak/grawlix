@@ -5,6 +5,7 @@ module Grawlix.Server where
 
 import Flow ((|>))
 import Grawlix.Database
+import Grawlix.Types
 
 import qualified Control.Monad.IO.Class as IO
 import qualified Hasql.Connection as Sql
@@ -42,13 +43,32 @@ api :: Servant.Proxy Api
 api = Servant.Proxy
 
 
-type Api = GetHealthCheck
-type GetHealthCheck = "health-check" Servant.:> Servant.Get '[Servant.JSON] Bool
+type Api
+  = GetHealthCheck
+  Servant.:<|> GetPackages
+
+type GetHealthCheck
+  = "health-check"
+  Servant.:> Servant.Get '[Servant.JSON] Bool
+
+type GetPackages
+  = "packages"
+  Servant.:> Servant.Get '[Servant.JSON] [PackageName]
 
 
 serverWith :: Sql.Connection -> Servant.Server Api
-serverWith connection = getHealthCheck connection
+serverWith connection
+  = getHealthCheckHandler connection
+  Servant.:<|> getPackagesHandler connection
 
 
-getHealthCheck :: Sql.Connection -> Servant.Handler Bool
-getHealthCheck connection = IO.liftIO (runQuery connection pingQuery ())
+getHealthCheckHandler :: Sql.Connection -> Servant.Handler Bool
+getHealthCheckHandler connection = io (runQuery connection pingQuery ())
+
+
+getPackagesHandler :: Sql.Connection -> Servant.Handler [PackageName]
+getPackagesHandler connection = io (runQuery connection selectPackageNames ())
+
+
+io :: IO a -> Servant.Handler a
+io = IO.liftIO
