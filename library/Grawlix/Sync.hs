@@ -32,6 +32,8 @@ import qualified Distribution.ModuleName as Cabal
 import qualified Distribution.Package as Cabal
 import qualified Distribution.PackageDescription as Cabal
 import qualified Distribution.PackageDescription.Parse as Cabal
+import qualified Distribution.Types.CondTree as Cabal
+import qualified Distribution.Types.UnqualComponentName as Cabal
 import qualified Distribution.Text as Cabal
 import qualified Distribution.Version as Cabal
 import qualified Hasql.Connection as Sql
@@ -276,7 +278,7 @@ toPackage package = Package
     |> Cabal.packageDescription
     |> Cabal.package
     |> Cabal.pkgVersion
-    |> Cabal.versionBranch
+    |> Cabal.versionNumbers
     |> map intToInt32
     |> Tagged.Tagged
   , packageRevision = package
@@ -463,7 +465,7 @@ renderCondition condition = case condition of
 renderConfVar :: Cabal.ConfVar -> String
 renderConfVar confVar = case confVar of
   Cabal.Arch arch -> concat ["arch(", Cabal.display arch, ")"]
-  Cabal.Flag (Cabal.FlagName flag) -> concat ["flag(", flag, ")"]
+  Cabal.Flag flag -> concat ["flag(", Cabal.unFlagName flag, ")"]
   Cabal.Impl compiler constraint -> concat
     [ "impl("
     , Cabal.display compiler
@@ -500,7 +502,11 @@ toExecutable
   :: (Cabal.Executable, ([Cabal.Condition Cabal.ConfVar], [Cabal.Dependency]))
   -> Executable
 toExecutable (executable, (conditions, constraints)) = Executable
-  { executableName = executable |> Cabal.exeName |> Text.pack |> Tagged.Tagged
+  { executableName = executable
+    |> Cabal.exeName
+    |> Cabal.unUnqualComponentName
+    |> Text.pack
+    |> Tagged.Tagged
   , executableCondition = toCondition conditions
   , executableDependencies = executable
     |> Cabal.buildInfo
@@ -515,7 +521,11 @@ toTest
   :: (Cabal.TestSuite, ([Cabal.Condition Cabal.ConfVar], [Cabal.Dependency]))
   -> Test
 toTest (test, (conditions, constraints)) = Test
-  { testName = test |> Cabal.testName |> Text.pack |> Tagged.Tagged
+  { testName = test
+    |> Cabal.testName
+    |> Cabal.unUnqualComponentName
+    |> Text.pack
+    |> Tagged.Tagged
   , testCondition = toCondition conditions
   , testDependencies = test
     |> Cabal.testBuildInfo
@@ -532,6 +542,7 @@ toBenchmark
 toBenchmark (benchmark, (conditions, constraints)) = Benchmark
   { benchmarkName = benchmark
     |> Cabal.benchmarkName
+    |> Cabal.unUnqualComponentName
     |> Text.pack
     |> Tagged.Tagged
   , benchmarkCondition = toCondition conditions
@@ -558,14 +569,17 @@ nodeToTree condition node = Tree.Node
     (condition, Cabal.condTreeConstraints node, Cabal.condTreeData node)
   , Tree.subForest = node
     |> Cabal.condTreeComponents
-    |> concatMap componentToForest
+    |> concatMap branchToForest
   }
 
 
-componentToForest
-  :: (Cabal.Condition v, Cabal.CondTree v c a, Maybe (Cabal.CondTree v c a))
+branchToForest
+  :: Cabal.CondBranch v c a
   -> Tree.Forest (Cabal.Condition v, c, a)
-componentToForest (condition, ifTrue, maybeIfFalse) = let
+branchToForest branch = let
+  condition = Cabal.condBranchCondition branch
+  ifTrue = Cabal.condBranchIfTrue branch
+  maybeIfFalse = Cabal.condBranchIfFalse branch
   first = nodeToTree condition ifTrue
   rest = case maybeIfFalse of
     Nothing -> []
@@ -600,7 +614,7 @@ fromEntries = Tar.foldEntries (:) [] (\ _ -> [])
 parseDescription :: LazyText.Text -> Maybe Cabal.GenericPackageDescription
 parseDescription contents = contents
   |> LazyText.unpack
-  |> Cabal.parsePackageDescription
+  |> Cabal.parseGenericPackageDescription
   |> fromParseResult
 
 

@@ -126,7 +126,7 @@ instance HttpApiData.FromHttpApiData Version where
     |> (\ results -> case results of
       [] -> "invalid version" |> Text.pack |> Left
       version : _ -> version
-        |> Cabal.versionBranch
+        |> Cabal.versionNumbers
         |> map intToInt32
         |> Tagged.Tagged
         |> Right)
