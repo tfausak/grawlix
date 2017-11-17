@@ -28,13 +28,14 @@ import qualified Data.Text.Encoding as Text
 import qualified Data.Text.Lazy as LazyText
 import qualified Data.Text.Lazy.Encoding as LazyText
 import qualified Data.Tree as Tree
+import qualified Debug.Trace as Debug
 import qualified Distribution.ModuleName as Cabal
 import qualified Distribution.Package as Cabal
 import qualified Distribution.PackageDescription as Cabal
 import qualified Distribution.PackageDescription.Parse as Cabal
+import qualified Distribution.Text as Cabal
 import qualified Distribution.Types.CondTree as Cabal
 import qualified Distribution.Types.UnqualComponentName as Cabal
-import qualified Distribution.Text as Cabal
 import qualified Distribution.Version as Cabal
 import qualified Hasql.Connection as Sql
 import qualified Hasql.Migration as Sql
@@ -618,16 +619,20 @@ parseDescription contents = contents
   |> fromParseResult
 
 
-fromParseResult :: Cabal.ParseResult a -> Maybe a
+fromParseResult :: Show a => Cabal.ParseResult a -> Maybe a
 fromParseResult result = case result of
   Cabal.ParseOk _ value -> Just value
-  _ -> Nothing
+  problem -> Debug.trace
+    ("failed to parse package description: " ++ show problem)
+    Nothing
 
 
 getEntryContents :: Tar.Entry -> Maybe LazyBytes.ByteString
 getEntryContents entry = case Tar.entryContent entry of
   Tar.NormalFile contents _ -> Just contents
-  _ -> Nothing
+  problem -> Debug.trace
+    ("failed to get entry contents: " ++ show problem)
+    Nothing
 
 
 isCabal :: Tar.Entry -> Bool
@@ -692,7 +697,11 @@ decodeUtf8 contents = contents |> Text.decodeUtf8' |> fromEither
 
 
 lazyDecodeUtf8 :: LazyBytes.ByteString -> Maybe LazyText.Text
-lazyDecodeUtf8 contents = contents |> LazyText.decodeUtf8' |> fromEither
+lazyDecodeUtf8 bytes = case LazyText.decodeUtf8' bytes of
+  Right text -> Just text
+  problem -> Debug.trace
+    ("failed to decode UTF-8: " ++ show problem)
+    Nothing
 
 
 fromEither :: Either left right -> Maybe right
