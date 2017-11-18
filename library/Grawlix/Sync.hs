@@ -70,7 +70,7 @@ main = do
     |> Maybe.mapMaybe getEntryContents
     |> Maybe.mapMaybe lazyDecodeUtf8
     |> Maybe.mapMaybe parseDescription
-    |> map toPackage
+    |> Maybe.mapMaybe toPackage
     |> mapM_ (handlePackage connection)
 
 
@@ -265,113 +265,114 @@ logPackage package exists = Printf.printf "%s\t%s\t%d\t%s\n"
   (if exists then "old" else "new")
 
 
-toPackage :: Cabal.GenericPackageDescription -> Package
-toPackage package = Package
-  { packageName = package
-    |> Cabal.packageDescription
-    |> Cabal.package
-    |> Cabal.pkgName
-    |> Cabal.unPackageName
-    |> Text.pack
-    |> Tagged.Tagged
-  , packageVersion = package
-    |> Cabal.packageDescription
-    |> Cabal.package
-    |> Cabal.pkgVersion
-    |> Cabal.versionNumbers
-    |> map intToInt32
-    |> Tagged.Tagged
-  , packageRevision = package
+toPackage :: Catch.MonadThrow m => Cabal.GenericPackageDescription -> m Package
+toPackage package = do
+  revision <- package
     |> Cabal.packageDescription
     |> Cabal.customFieldsPD
     |> lookup "x-revision"
-    |> Maybe.fromMaybe ""
+    |> Maybe.fromMaybe "0"
     |> Read.readMaybe
-    |> Maybe.fromMaybe 0
-    |> intToInt32
-    |> Tagged.Tagged
-  , packageLicense = package
-    |> Cabal.packageDescription
-    |> Cabal.license
-    |> Cabal.display
-    |> Text.pack
-    |> Tagged.Tagged
-  , packageSynopsis = package
-    |> Cabal.packageDescription
-    |> Cabal.synopsis
-    |> Text.pack
-  , packageDescription = package
-    |> Cabal.packageDescription
-    |> Cabal.description
-    |> Text.pack
-  , packageCategories = package
-    |> Cabal.packageDescription
-    |> Cabal.category
-    |> Text.pack
-    |> Text.splitOn (Text.singleton ',')
-    |> map Text.strip
-    |> filter (\ x -> x |> Text.null |> not)
-    |> map Tagged.Tagged
-  , packageUrl = package
-    |> Cabal.packageDescription
-    |> Cabal.homepage
-    |> Text.pack
-  , packageRepos = package
+    |> fromJust "failed to read revision"
+  repos <- package
     |> Cabal.packageDescription
     |> Cabal.sourceRepos
-    |> Maybe.mapMaybe toRepo
-  , packageLibraries = let
-    name = package
+    |> mapM toRepo
+  pure Package
+    { packageName = package
       |> Cabal.packageDescription
       |> Cabal.package
       |> Cabal.pkgName
       |> Cabal.unPackageName
       |> Text.pack
       |> Tagged.Tagged
-    library = package
+    , packageVersion = package
       |> Cabal.packageDescription
-      |> Cabal.library
-      |> Foldable.toList
-      |> map withoutConditionsOrConstraints
-    condLibrary = package
-      |> Cabal.condLibrary
-      |> Foldable.toList
-      |> concatMap fromCondTree
-    in [library, condLibrary] |> concat |> map (toLibrary name)
-  , packageExecutables = let
-    executables = package
+      |> Cabal.package
+      |> Cabal.pkgVersion
+      |> Cabal.versionNumbers
+      |> map intToInt32
+      |> Tagged.Tagged
+    , packageRevision = revision |> intToInt32 |> Tagged.Tagged
+    , packageLicense = package
       |> Cabal.packageDescription
-      |> Cabal.executables
-      |> map withoutConditionsOrConstraints
-    condExecutables = package
-      |> Cabal.condExecutables
-      |> concatMap (\ (name, tree) -> tree
-        |> fromCondTree
-        |> map (Arrow.first (\ x -> x { Cabal.exeName = name })))
-    in [executables, condExecutables] |> concat |> map toExecutable
-  , packageTests = let
-    tests = package
+      |> Cabal.license
+      |> Cabal.display
+      |> Text.pack
+      |> Tagged.Tagged
+    , packageSynopsis = package
       |> Cabal.packageDescription
-      |> Cabal.testSuites
-      |> map withoutConditionsOrConstraints
-    condTests = package
-      |> Cabal.condTestSuites
-      |> concatMap (\ (name, tree) -> tree
-        |> fromCondTree
-        |> map (Arrow.first (\ x -> x { Cabal.testName = name })))
-    in [tests, condTests] |> concat |> map toTest
-  , packageBenchmarks = let
-    benchmarks = package
+      |> Cabal.synopsis
+      |> Text.pack
+    , packageDescription = package
       |> Cabal.packageDescription
-      |> Cabal.benchmarks
-      |> map withoutConditionsOrConstraints
-    condBenchmarks = package
-      |> Cabal.condBenchmarks
-      |> concatMap (\ (name, tree) -> tree
-        |> fromCondTree
-        |> map (Arrow.first (\ x -> x { Cabal.benchmarkName = name })))
-    in [benchmarks, condBenchmarks] |> concat |> map toBenchmark
-  }
+      |> Cabal.description
+      |> Text.pack
+    , packageCategories = package
+      |> Cabal.packageDescription
+      |> Cabal.category
+      |> Text.pack
+      |> Text.splitOn (Text.singleton ',')
+      |> map Text.strip
+      |> filter (\ x -> x |> Text.null |> not)
+      |> map Tagged.Tagged
+    , packageUrl = package
+      |> Cabal.packageDescription
+      |> Cabal.homepage
+      |> Text.pack
+    , packageRepos = repos
+    , packageLibraries = let
+      name = package
+        |> Cabal.packageDescription
+        |> Cabal.package
+        |> Cabal.pkgName
+        |> Cabal.unPackageName
+        |> Text.pack
+        |> Tagged.Tagged
+      library = package
+        |> Cabal.packageDescription
+        |> Cabal.library
+        |> Foldable.toList
+        |> map withoutConditionsOrConstraints
+      condLibrary = package
+        |> Cabal.condLibrary
+        |> Foldable.toList
+        |> concatMap fromCondTree
+      in [library, condLibrary] |> concat |> map (toLibrary name)
+    , packageExecutables = let
+      executables = package
+        |> Cabal.packageDescription
+        |> Cabal.executables
+        |> map withoutConditionsOrConstraints
+      condExecutables = package
+        |> Cabal.condExecutables
+        |> concatMap (\ (name, tree) -> tree
+          |> fromCondTree
+          |> map (Arrow.first (\ x -> x { Cabal.exeName = name })))
+      in [executables, condExecutables] |> concat |> map toExecutable
+    , packageTests = let
+      tests = package
+        |> Cabal.packageDescription
+        |> Cabal.testSuites
+        |> map withoutConditionsOrConstraints
+      condTests = package
+        |> Cabal.condTestSuites
+        |> concatMap (\ (name, tree) -> tree
+          |> fromCondTree
+          |> map (Arrow.first (\ x -> x { Cabal.testName = name })))
+      in [tests, condTests] |> concat |> map toTest
+    , packageBenchmarks = let
+      benchmarks = package
+        |> Cabal.packageDescription
+        |> Cabal.benchmarks
+        |> map withoutConditionsOrConstraints
+      condBenchmarks = package
+        |> Cabal.condBenchmarks
+        |> concatMap (\ (name, tree) -> tree
+          |> fromCondTree
+          |> map (Arrow.first (\ x -> x { Cabal.benchmarkName = name })))
+      in [benchmarks, condBenchmarks] |> concat |> map toBenchmark
+    }
 
 
 toRepo :: Catch.MonadThrow m => Cabal.SourceRepo -> m Repo
