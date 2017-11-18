@@ -29,6 +29,7 @@ import qualified Data.Text.Encoding as Text
 import qualified Data.Text.Lazy as LazyText
 import qualified Data.Text.Lazy.Encoding as LazyText
 import qualified Data.Tree as Tree
+import qualified Data.Word as Word
 import qualified Debug.Trace as Debug
 import qualified Distribution.ModuleName as Cabal
 import qualified Distribution.Package as Cabal
@@ -75,10 +76,20 @@ main = do
       Just
       (do
         bytes <- getEntryContents entry
-        text <- lazyDecodeUtf8 bytes
+        text <- bytes |> fixEncoding |> lazyDecodeUtf8
         description <- text |> stripBom |> parseDescription
         toPackage description))
     |> mapM_ (handlePackage connection)
+
+
+fixEncoding :: LazyBytes.ByteString -> LazyBytes.ByteString
+fixEncoding bytes = LazyBytes.concatMap fixByte bytes
+
+
+fixByte :: Word.Word8 -> LazyBytes.ByteString
+fixByte byte = if byte == 0xf6
+  then LazyBytes.pack [0xc3, 0xb6]
+  else LazyBytes.singleton byte
 
 
 stripBom :: LazyText.Text -> LazyText.Text
