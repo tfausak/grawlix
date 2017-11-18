@@ -27,6 +27,7 @@ library:
     - contravariant
     - contravariant-extras
     - directory
+    - exceptions
     - filepath
     - flow
     - hasql

@@ -2,7 +2,7 @@
 {-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
-module Grawlix.Sync where
+module Grawlix.Sync (main) where
 
 import Flow ((|>))
 import Grawlix.Database
@@ -13,6 +13,7 @@ import qualified Codec.Compression.GZip as Gzip
 import qualified Control.Arrow as Arrow
 import qualified Control.Exception as Exception
 import qualified Control.Monad as Monad
+import qualified Control.Monad.Catch as Catch
 import qualified Data.ByteString as Bytes
 import qualified Data.ByteString.Base16 as Base16
 import qualified Data.ByteString.Base64 as Base64
@@ -28,7 +29,6 @@ import qualified Data.Text.Encoding as Text
 import qualified Data.Text.Lazy as LazyText
 import qualified Data.Text.Lazy.Encoding as LazyText
 import qualified Data.Tree as Tree
-import qualified Debug.Trace as Debug
 import qualified Distribution.ModuleName as Cabal
 import qualified Distribution.Package as Cabal
 import qualified Distribution.PackageDescription as Cabal
@@ -59,8 +59,7 @@ main = do
     |> mapM_ (runMigration connection)
 
   manager <- Client.newTlsManager
-  maybeMd5 <- getLatestIndexMd5 manager
-  md5 <- maybe (fail "could not get package index MD5") pure maybeMd5
+  md5 <- getLatestIndexMd5 manager
   let file = Path.addExtension md5 "tgz"
   index <- manager |> getLatestIndex |> getCached file
   index
@@ -375,19 +374,19 @@ toPackage package = Package
   }
 
 
-toRepo :: Cabal.SourceRepo -> Maybe Repo
+toRepo :: Catch.MonadThrow m => Cabal.SourceRepo -> m Repo
 toRepo repo = do
   let repoKind = repo
         |> Cabal.repoKind
         |> Cabal.display
         |> Text.pack
         |> Tagged.Tagged
-  rawRepoType <- Cabal.repoType repo
+  rawRepoType <- Cabal.repoType repo |> fromJust "could not get repo type"
   let repoType = rawRepoType
         |> Cabal.display
         |> Text.pack
         |> Tagged.Tagged
-  rawRepoUrl <- Cabal.repoLocation repo
+  rawRepoUrl <- Cabal.repoLocation repo |> fromJust "could not get repo URL"
   let repoUrl = rawRepoUrl |> Text.pack
   pure Repo { repoKind, repoType, repoUrl }
 
@@ -612,27 +611,25 @@ fromEntries :: Tar.Entries a -> [Tar.Entry]
 fromEntries = Tar.foldEntries (:) [] (\ _ -> [])
 
 
-parseDescription :: LazyText.Text -> Maybe Cabal.GenericPackageDescription
+parseDescription :: Catch.MonadThrow m => LazyText.Text -> m Cabal.GenericPackageDescription
 parseDescription contents = contents
   |> LazyText.unpack
   |> Cabal.parseGenericPackageDescription
   |> fromParseResult
 
 
-fromParseResult :: Show a => Cabal.ParseResult a -> Maybe a
+fromParseResult :: (Catch.MonadThrow m, Show a) => Cabal.ParseResult a -> m a
 fromParseResult result = case result of
-  Cabal.ParseOk _ value -> Just value
-  problem -> Debug.trace
-    ("failed to parse package description: " ++ show problem)
-    Nothing
+  Cabal.ParseOk _ value -> pure value
+  problem -> "failed to parse package description: " ++ show problem
+    |> throw
 
 
-getEntryContents :: Tar.Entry -> Maybe LazyBytes.ByteString
+getEntryContents :: Catch.MonadThrow m => Tar.Entry -> m LazyBytes.ByteString
 getEntryContents entry = case Tar.entryContent entry of
-  Tar.NormalFile contents _ -> Just contents
-  problem -> Debug.trace
-    ("failed to get entry contents: " ++ show problem)
-    Nothing
+  Tar.NormalFile contents _ -> pure contents
+  problem -> "failed to get entry contents: " ++ show problem
+    |> throw
 
 
 isCabal :: Tar.Entry -> Bool
@@ -672,42 +669,55 @@ getLatestIndex manager = do
   response |> Client.responseBody |> pure
 
 
-getLatestIndexMd5 :: Client.Manager -> IO (Maybe String)
+getLatestIndexMd5 :: Client.Manager -> IO String
 getLatestIndexMd5 manager = do
   getRequest <- Client.parseRequest indexUrl
   let headRequest = getRequest { Client.method = Http.methodHead }
   response <- Client.httpNoBody headRequest manager
-  response |> getContentMd5 |> pure
+  getContentMd5 response
 
 
 indexUrl :: String
 indexUrl = "https://hackage.haskell.org/01-index.tar.gz"
 
 
-getContentMd5 :: Client.Response body -> Maybe String
+getContentMd5 :: Catch.MonadThrow m => Client.Response body -> m String
 getContentMd5 response = do
-  base64 <- response |> Client.responseHeaders |> lookup Http.hContentMD5
-  md5 <- base64 |> Base64.decode |> fromEither
+  base64 <- response
+    |> Client.responseHeaders
+    |> lookup Http.hContentMD5
+    |> fromJust "could not find Content-MD5 header"
+  md5 <- base64 |> Base64.decode |> fromRight
   base16 <- md5 |> Base16.encode |> decodeUtf8
   base16 |> Text.unpack |> pure
 
 
-decodeUtf8 :: Bytes.ByteString -> Maybe Text.Text
-decodeUtf8 contents = contents |> Text.decodeUtf8' |> fromEither
+decodeUtf8 :: Catch.MonadThrow m => Bytes.ByteString -> m Text.Text
+decodeUtf8 bytes = case Text.decodeUtf8' bytes of
+  Right text -> pure text
+  Left problem -> "failed to decode strict UTF-8: " ++ show problem
+    |> throw
 
 
-lazyDecodeUtf8 :: LazyBytes.ByteString -> Maybe LazyText.Text
+lazyDecodeUtf8 :: Catch.MonadThrow m => LazyBytes.ByteString -> m LazyText.Text
 lazyDecodeUtf8 bytes = case LazyText.decodeUtf8' bytes of
-  Right text -> Just text
-  problem -> Debug.trace
-    ("failed to decode UTF-8: " ++ show problem)
-    Nothing
+  Right text -> pure text
+  Left problem -> "failed to decode lazy UTF-8: " ++ show problem
+    |> throw
 
 
-fromEither :: Either left right -> Maybe right
-fromEither e = case e of
-  Right r -> Just r
-  _ -> Nothing
+fromJust :: Catch.MonadThrow m => String -> Maybe a -> m a
+fromJust message value = maybe (throw message) pure value
+
+
+throw :: Catch.MonadThrow m => String -> m a
+throw message = message |> userError |> Catch.throwM
+
+
+fromRight :: (Catch.MonadThrow m, Show left) => Either left right -> m right
+fromRight e = case e of
+  Right r -> pure r
+  Left l -> show l |> throw
 
 
 prepend :: a -> [a] -> [a]
