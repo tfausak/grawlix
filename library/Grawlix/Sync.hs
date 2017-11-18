@@ -82,6 +82,11 @@ main = do
     |> mapM_ (handlePackage connection)
 
 
+-- There is a single Cabal file in the entire Hackage index that is encoded
+-- with ISO-8859-1 (also know as Latin-1 or Windows-1252) instead of UTF-8. It
+-- contains a single 0xF6 byte (for U+00F6) that should be encoded as 0xC3 0xB6
+-- instead. This function is responsible for fixing that single byte.
+-- <https://hackage.haskell.org/package/nat-0.1/revision/0.cabal>
 fixEncoding :: LazyBytes.ByteString -> LazyBytes.ByteString
 fixEncoding bytes = LazyBytes.concatMap fixByte bytes
 
@@ -92,6 +97,13 @@ fixByte byte = if byte == 0xf6
   else LazyBytes.singleton byte
 
 
+-- There are a few Cabal files in the Hackage index that start with the UTF-16
+-- byte order mark U+FEFF (0xFE 0xFF). Cabal is supposed to be able to handle
+-- this, but it must do so somewhere other than its parser. This function is
+-- responsible for removing the BOM at the start of the package description.
+-- <https://hackage.haskell.org/package/Workflow-0.8.3/revision/0.cabal>
+-- <https://hackage.haskell.org/package/dictionary-sharing-0.1.0.0/revision/0.cabal>
+-- <https://hackage.haskell.org/package/testing-type-modifiers-0.1.0.0/revision/0.cabal>
 stripBom :: LazyText.Text -> LazyText.Text
 stripBom text = LazyText.dropWhile isBom text
 
