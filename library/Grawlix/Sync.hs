@@ -29,6 +29,7 @@ import qualified Data.Text.Encoding as Text
 import qualified Data.Text.Lazy as LazyText
 import qualified Data.Text.Lazy.Encoding as LazyText
 import qualified Data.Tree as Tree
+import qualified Debug.Trace as Debug
 import qualified Distribution.ModuleName as Cabal
 import qualified Distribution.Package as Cabal
 import qualified Distribution.PackageDescription as Cabal
@@ -67,10 +68,16 @@ main = do
     |> Tar.read
     |> fromEntries
     |> filter isCabal
-    |> Maybe.mapMaybe getEntryContents
-    |> Maybe.mapMaybe lazyDecodeUtf8
-    |> Maybe.mapMaybe parseDescription
-    |> Maybe.mapMaybe toPackage
+    |> Maybe.mapMaybe (\ entry -> either
+      (\ problem -> Debug.trace
+        (Printf.printf "%s: %s" (Tar.entryPath entry) (show problem))
+        Nothing)
+      Just
+      (do
+        bytes <- getEntryContents entry
+        text <- lazyDecodeUtf8 bytes
+        description <- parseDescription text
+        toPackage description))
     |> mapM_ (handlePackage connection)
 
 
