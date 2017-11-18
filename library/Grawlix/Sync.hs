@@ -662,7 +662,7 @@ handleCacheMiss miss path exception = do
 
 
 cacheDirectory :: FilePath
-cacheDirectory = "cache"
+cacheDirectory = Path.combine "data" "cache"
 
 
 getLatestIndex :: Client.Manager -> IO LazyBytes.ByteString
