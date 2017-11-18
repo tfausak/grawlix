@@ -76,9 +76,17 @@ main = do
       (do
         bytes <- getEntryContents entry
         text <- lazyDecodeUtf8 bytes
-        description <- parseDescription text
+        description <- text |> stripBom |> parseDescription
         toPackage description))
     |> mapM_ (handlePackage connection)
+
+
+stripBom :: LazyText.Text -> LazyText.Text
+stripBom text = LazyText.dropWhile isBom text
+
+
+isBom :: Char -> Bool
+isBom char = char == '\xfeff'
 
 
 handlePackage :: Sql.Connection -> Package -> IO ()
@@ -626,11 +634,11 @@ parseDescription contents = contents
   |> fromParseResult
 
 
-fromParseResult :: (Catch.MonadThrow m, Show a) => Cabal.ParseResult a -> m a
+fromParseResult :: Catch.MonadThrow m => Cabal.ParseResult a -> m a
 fromParseResult result = case result of
   Cabal.ParseOk _ value -> pure value
-  problem -> "failed to parse package description: " ++ show problem
-    |> throw
+  Cabal.ParseFailed problem ->
+    "failed to parse package description: " ++ show problem |> throw
 
 
 getEntryContents :: Catch.MonadThrow m => Tar.Entry -> m LazyBytes.ByteString
