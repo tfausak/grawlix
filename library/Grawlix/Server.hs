@@ -49,6 +49,7 @@ type Api
   Servant.:<|> GetPackages
   Servant.:<|> GetVersions
   Servant.:<|> GetRevisions
+  Servant.:<|> GetLibraries
 
 type GetHealthCheck
   = "health-check"
@@ -72,6 +73,16 @@ type GetRevisions
   Servant.:> "revisions"
   Servant.:> Servant.Get '[Servant.JSON] [Revision]
 
+type GetLibraries
+  = "packages"
+  Servant.:> Servant.Capture "package" PackageName
+  Servant.:> "versions"
+  Servant.:> Servant.Capture "version" Version
+  Servant.:> "revisions"
+  Servant.:> Servant.Capture "revision" Revision
+  Servant.:> "libraries"
+  Servant.:> Servant.Get '[Servant.JSON] [LibraryName]
+
 
 serverWith :: Sql.Connection -> Servant.Server Api
 serverWith connection
@@ -79,6 +90,7 @@ serverWith connection
   Servant.:<|> getPackagesHandler connection
   Servant.:<|> getVersionsHandler connection
   Servant.:<|> getRevisionsHandler connection
+  Servant.:<|> getLibrariesHandler connection
 
 
 getHealthCheckHandler :: Sql.Connection -> Servant.Handler Bool
@@ -97,6 +109,11 @@ getVersionsHandler connection package =
 getRevisionsHandler :: Sql.Connection -> PackageName -> Version -> Servant.Handler [Revision]
 getRevisionsHandler connection package version =
   io (runQuery connection selectRevisions (package, version))
+
+
+getLibrariesHandler :: Sql.Connection -> PackageName -> Version -> Revision -> Servant.Handler [LibraryName]
+getLibrariesHandler connection package version revision =
+  io (runQuery connection selectLibraries (package, version, revision))
 
 
 io :: IO a -> Servant.Handler a

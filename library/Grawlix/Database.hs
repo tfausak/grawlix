@@ -93,6 +93,36 @@ selectRevisions = makeQuery
     |> fmap (map Revision))
 
 
+selectLibraries :: Sql.Query (PackageName, Version, Revision) [LibraryName]
+selectLibraries = makeQuery
+  [Quotes.string|
+    select distinct library_names.content
+    from packages
+    inner join package_names
+    on package_names.id = packages.package_name_id
+    inner join versions
+    on versions.id = packages.version_id
+    inner join libraries
+    on libraries.package_id = packages.id
+    inner join library_names
+    on library_names.id = libraries.library_name_id
+    where package_names.content = $1
+    and versions.content = $2
+    and packages.revision = $3
+    order by library_names.content asc
+  |]
+  (Contravariant.contrazip3
+    (Contravariant.contramap unwrapPackageName textParam)
+    (Sql.Encode.int4 |> arrayOf |> Contravariant.contramap unwrapVersion)
+    (Sql.Encode.int4
+      |> Sql.Encode.value
+      |> Contravariant.contramap unwrapRevision))
+  (Sql.Decode.text
+    |> Sql.Decode.value
+    |> Sql.Decode.rowsList
+    |> fmap (map Tagged.Tagged))
+
+
 selectDependencyId :: Sql.Query (ConstraintId, PackageNameId) DependencyId
 selectDependencyId = makeQuery
   [Quotes.string|
