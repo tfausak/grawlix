@@ -1,4 +1,5 @@
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE TypeSynonymInstances #-}
 
@@ -8,6 +9,7 @@ module Grawlix.Types where
 
 import Flow ((|>))
 
+import qualified Data.Aeson as Json
 import qualified Data.Int as Int
 import qualified Data.Map as Map
 import qualified Data.Tagged as Tagged
@@ -15,6 +17,7 @@ import qualified Data.Text as Text
 import qualified Distribution.Compat.ReadP as Cabal
 import qualified Distribution.Text as Cabal
 import qualified Distribution.Version as Cabal
+import qualified GHC.Generics as Ghc
 import qualified Web.HttpApiData as HttpApiData
 
 
@@ -98,7 +101,6 @@ type License = Tagged.Tagged "License" Text.Text
 type ModuleName = Tagged.Tagged "ModuleName" [Text.Text]
 type ModuleNameId = Tagged.Tagged "ModuleNameId" Int.Int32
 type PackageId = Tagged.Tagged "PackageId" Int.Int32
-type PackageName = Tagged.Tagged "PackageName" Text.Text
 type PackageNameId = Tagged.Tagged "PackageNameId" Int.Int32
 type RepoId = Tagged.Tagged "RepoId" Int.Int32
 type RepoKind = Tagged.Tagged "RepoKind" Text.Text
@@ -112,9 +114,17 @@ type TestNameId = Tagged.Tagged "TestNameId" Int.Int32
 type Version = Tagged.Tagged "Version" [Int.Int32]
 
 
+newtype PackageName
+  = PackageName { unwrapPackageName :: Text.Text }
+  deriving (Eq, Ghc.Generic, Ord, Show)
+
 instance HttpApiData.FromHttpApiData PackageName where
   parseUrlPiece urlPiece =
-    fmap Tagged.Tagged (HttpApiData.parseUrlPiece urlPiece)
+    fmap PackageName (HttpApiData.parseUrlPiece urlPiece)
+
+instance Json.ToJSON PackageName where
+  toJSON = Json.genericToJSON Json.defaultOptions
+    { Json.unwrapUnaryRecords = True }
 
 
 instance HttpApiData.FromHttpApiData Version where

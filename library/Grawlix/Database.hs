@@ -46,7 +46,7 @@ selectPackageNames = makeQuery
   (Sql.Decode.text
     |> Sql.Decode.value
     |> Sql.Decode.rowsList
-    |> fmap (map Tagged.Tagged))
+    |> fmap (map PackageName))
 
 
 selectVersions :: Sql.Query PackageName [Version]
@@ -61,7 +61,7 @@ selectVersions = makeQuery
     where package_names.content = $1
     order by versions.content asc
   |]
-  taggedTextParam
+  (Contravariant.contramap unwrapPackageName textParam)
   (Sql.Decode.int4
     |> Sql.Decode.arrayValue
     |> Sql.Decode.arrayDimension Monad.replicateM
@@ -85,7 +85,7 @@ selectRevisions = makeQuery
     order by packages.revision asc
   |]
   (Contravariant.contrazip2
-    taggedTextParam
+    (Contravariant.contramap unwrapPackageName textParam)
     (Sql.Encode.int4 |> arrayOf |> contraUntag))
   (Sql.Decode.int4
     |> Sql.Decode.value
@@ -487,7 +487,7 @@ selectPackageNameId = makeQuery
     from package_names
     where content = $1
   |]
-  taggedTextParam
+  (Contravariant.contramap unwrapPackageName textParam)
   idResult
 
 
@@ -520,7 +520,7 @@ insertPackageName = makeQuery
     values ( $1 )
     on conflict do nothing
   |]
-  taggedTextParam
+  (Contravariant.contramap unwrapPackageName textParam)
   Sql.Decode.unit
 
 
@@ -578,7 +578,7 @@ insertPackage = makeQuery
     ) on conflict do nothing
   |]
   (Contravariant.contrazip7
-    taggedTextParam
+    (Contravariant.contramap unwrapPackageName textParam)
     (Sql.Encode.int4 |> arrayOf |> contraUntag)
     idParam
     taggedTextParam
@@ -602,7 +602,7 @@ selectPackageId = makeQuery
     and packages.revision = $3
   |]
   (Contravariant.contrazip3
-    taggedTextParam
+    (Contravariant.contramap unwrapPackageName textParam)
     (Sql.Encode.int4 |> arrayOf |> contraUntag)
     idParam)
   idResult

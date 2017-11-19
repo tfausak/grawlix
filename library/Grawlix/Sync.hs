@@ -293,7 +293,7 @@ handlePackage connection package = do
 
 logPackage :: Package -> Bool -> IO ()
 logPackage package exists = Printf.printf "%s\t%s\t%d\t%s\n"
-  (package |> packageName |> Tagged.untag |> Text.unpack)
+  (package |> packageName |> unwrapPackageName |> Text.unpack)
   (package
     |> packageVersion
     |> Tagged.untag
@@ -323,7 +323,7 @@ toPackage package = do
       |> Cabal.pkgName
       |> Cabal.unPackageName
       |> Text.pack
-      |> Tagged.Tagged
+      |> PackageName
     , packageVersion = package
       |> Cabal.packageDescription
       |> Cabal.package
@@ -532,7 +532,7 @@ toDependency (Cabal.Dependency packageName versionRange) = Dependency
   { dependencyPackage = packageName
     |> Cabal.unPackageName
     |> Text.pack
-    |> Tagged.Tagged
+    |> PackageName
   , dependencyVersionRange = versionRange
   }
 

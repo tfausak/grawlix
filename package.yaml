@@ -19,6 +19,7 @@ ghc-options:
 
 library:
   dependencies:
+    - aeson
     - base16-bytestring
     - base64-bytestring
     - bytestring
