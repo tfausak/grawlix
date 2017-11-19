@@ -82,7 +82,7 @@ type GetLibraries
   Servant.:> "revisions"
   Servant.:> Servant.Capture "revision" Revision
   Servant.:> "libraries"
-  Servant.:> Servant.Get '[Servant.JSON] [LibraryName]
+  Servant.:> Servant.Get '[Servant.JSON] [LibraryId]
 
 type GetModules
   = "packages"
@@ -92,7 +92,7 @@ type GetModules
   Servant.:> "revisions"
   Servant.:> Servant.Capture "revision" Revision
   Servant.:> "libraries"
-  Servant.:> Servant.Capture "library" LibraryName
+  Servant.:> Servant.Capture "library" LibraryId
   Servant.:> "modules"
   Servant.:> Servant.Get '[Servant.JSON] [ModuleName]
 
@@ -125,7 +125,12 @@ getRevisionsHandler connection package version =
   io (runQuery connection selectRevisions (package, version))
 
 
-getLibrariesHandler :: Sql.Connection -> PackageName -> Version -> Revision -> Servant.Handler [LibraryName]
+getLibrariesHandler
+  :: Sql.Connection
+  -> PackageName
+  -> Version
+  -> Revision
+  -> Servant.Handler [LibraryId]
 getLibrariesHandler connection package version revision =
   io (runQuery connection selectLibraries (package, version, revision))
 
@@ -135,7 +140,7 @@ getModulesHandler
   -> PackageName
   -> Version
   -> Revision
-  -> LibraryName
+  -> LibraryId
   -> Servant.Handler [ModuleName]
 getModulesHandler connection package version revision library =
   io (runQuery connection selectModules (package, version, revision, library))

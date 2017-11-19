@@ -93,10 +93,10 @@ selectRevisions = makeQuery
     |> fmap (map Revision))
 
 
-selectLibraries :: Sql.Query (PackageName, Version, Revision) [LibraryName]
+selectLibraries :: Sql.Query (PackageName, Version, Revision) [LibraryId]
 selectLibraries = makeQuery
   [Quotes.string|
-    select distinct library_names.content
+    select distinct libraries.id
     from packages
     inner join package_names
     on package_names.id = packages.package_name_id
@@ -104,12 +104,10 @@ selectLibraries = makeQuery
     on versions.id = packages.version_id
     inner join libraries
     on libraries.package_id = packages.id
-    inner join library_names
-    on library_names.id = libraries.library_name_id
     where package_names.content = $1
     and versions.content = $2
     and packages.revision = $3
-    order by library_names.content asc
+    order by libraries.id asc
   |]
   (Contravariant.contrazip3
     (Contravariant.contramap unwrapPackageName textParam)
@@ -117,13 +115,13 @@ selectLibraries = makeQuery
     (Sql.Encode.int4
       |> Sql.Encode.value
       |> Contravariant.contramap unwrapRevision))
-  (Sql.Decode.text
+  (Sql.Decode.int4
     |> Sql.Decode.value
     |> Sql.Decode.rowsList
-    |> fmap (map LibraryName))
+    |> fmap (map LibraryId))
 
 
-selectModules :: Sql.Query (PackageName, Version, Revision, LibraryName) [ModuleName]
+selectModules :: Sql.Query (PackageName, Version, Revision, LibraryId) [ModuleName]
 selectModules = makeQuery
   [Quotes.string|
     select distinct module_names.content
@@ -134,8 +132,6 @@ selectModules = makeQuery
     on versions.id = packages.version_id
     inner join libraries
     on libraries.package_id = packages.id
-    inner join library_names
-    on library_names.id = libraries.library_name_id
     inner join libraries_module_names
     on libraries_module_names.library_id = libraries.id
     inner join module_names
@@ -143,7 +139,7 @@ selectModules = makeQuery
     where package_names.content = $1
     and versions.content = $2
     and packages.revision = $3
-    and library_names.content = $4
+    and libraries.id = $4
     order by module_names.content asc
   |]
   (Contravariant.contrazip4
@@ -152,7 +148,9 @@ selectModules = makeQuery
     (Sql.Encode.int4
       |> Sql.Encode.value
       |> Contravariant.contramap unwrapRevision)
-    (Contravariant.contramap unwrapLibraryName textParam))
+    (Sql.Encode.int4
+      |> Sql.Encode.value
+      |> Contravariant.contramap unwrapLibraryId))
     (Sql.Decode.text
       |> Sql.Decode.arrayValue
       |> Sql.Decode.arrayDimension Monad.replicateM
@@ -181,7 +179,11 @@ insertDependencyLibrary = makeQuery
     values ( $1, $2 )
     on conflict do nothing
   |]
-  (Contravariant.contrazip2 idParam idParam)
+  (Contravariant.contrazip2
+    idParam
+    (Sql.Encode.int4
+      |> Sql.Encode.value
+      |> Contravariant.contramap unwrapLibraryId))
   Sql.Decode.unit
 
 
@@ -423,7 +425,10 @@ selectLibraryId = makeQuery
     and condition_id = $3
   |]
   (Contravariant.contrazip3 idParam idParam idParam)
-  idResult
+  (Sql.Decode.int4
+    |> Sql.Decode.value
+    |> Sql.Decode.singleRow
+    |> fmap LibraryId)
 
 
 selectModuleNameId :: Sql.Query ModuleName ModuleNameId
@@ -444,7 +449,11 @@ insertLibraryModuleName = makeQuery
     values ( $1, $2 )
     on conflict do nothing
   |]
-  (Contravariant.contrazip2 idParam idParam)
+  (Contravariant.contrazip2
+    (Sql.Encode.int4
+      |> Sql.Encode.value
+      |> Contravariant.contramap unwrapLibraryId)
+    idParam)
   Sql.Decode.unit
 
 
