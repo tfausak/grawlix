@@ -367,17 +367,20 @@ toPackage package = do
         |> Cabal.unPackageName
         |> Text.pack
         |> LibraryName
-      -- TODO: Support multiple libraries.
       library = package
         |> Cabal.packageDescription
         |> Cabal.library
         |> Foldable.toList
         |> map withoutConditionsOrConstraints
+      libraries = package
+        |> Cabal.packageDescription
+        |> Cabal.subLibraries
+        |> map withoutConditionsOrConstraints
       condLibrary = package
         |> Cabal.condLibrary
         |> Foldable.toList
         |> concatMap fromCondTree
-      in [library, condLibrary] |> concat |> map (toLibrary name)
+      in [library, libraries, condLibrary] |> concat |> map (toLibrary name)
     , packageExecutables = let
       executables = package
         |> Cabal.packageDescription
@@ -436,7 +439,12 @@ toLibrary
   -> (Cabal.Library, ([Cabal.Condition Cabal.ConfVar], [Cabal.Dependency]))
   -> Library
 toLibrary name (library, (conditions, constraints)) = Library
-  { libraryName = name
+  { libraryName = library
+    |> Cabal.libName
+    |> fmap Cabal.unUnqualComponentName
+    |> fmap Text.pack
+    |> fmap LibraryName
+    |> Maybe.fromMaybe name
   , libraryCondition = toCondition conditions
   , libraryModules = library
     |> Cabal.exposedModules
