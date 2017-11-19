@@ -50,6 +50,7 @@ type Api
   Servant.:<|> GetVersions
   Servant.:<|> GetRevisions
   Servant.:<|> GetLibraries
+  Servant.:<|> GetModules
 
 type GetHealthCheck
   = "health-check"
@@ -83,6 +84,18 @@ type GetLibraries
   Servant.:> "libraries"
   Servant.:> Servant.Get '[Servant.JSON] [LibraryName]
 
+type GetModules
+  = "packages"
+  Servant.:> Servant.Capture "package" PackageName
+  Servant.:> "versions"
+  Servant.:> Servant.Capture "version" Version
+  Servant.:> "revisions"
+  Servant.:> Servant.Capture "revision" Revision
+  Servant.:> "libraries"
+  Servant.:> Servant.Capture "library" LibraryName
+  Servant.:> "modules"
+  Servant.:> Servant.Get '[Servant.JSON] [ModuleName]
+
 
 serverWith :: Sql.Connection -> Servant.Server Api
 serverWith connection
@@ -91,6 +104,7 @@ serverWith connection
   Servant.:<|> getVersionsHandler connection
   Servant.:<|> getRevisionsHandler connection
   Servant.:<|> getLibrariesHandler connection
+  Servant.:<|> getModulesHandler connection
 
 
 getHealthCheckHandler :: Sql.Connection -> Servant.Handler Bool
@@ -114,6 +128,17 @@ getRevisionsHandler connection package version =
 getLibrariesHandler :: Sql.Connection -> PackageName -> Version -> Revision -> Servant.Handler [LibraryName]
 getLibrariesHandler connection package version revision =
   io (runQuery connection selectLibraries (package, version, revision))
+
+
+getModulesHandler
+  :: Sql.Connection
+  -> PackageName
+  -> Version
+  -> Revision
+  -> LibraryName
+  -> Servant.Handler [ModuleName]
+getModulesHandler connection package version revision library =
+  io (runQuery connection selectModules (package, version, revision, library))
 
 
 io :: IO a -> Servant.Handler a

@@ -366,7 +366,8 @@ toPackage package = do
         |> Cabal.pkgName
         |> Cabal.unPackageName
         |> Text.pack
-        |> Tagged.Tagged
+        |> LibraryName
+      -- TODO: Support multiple libraries.
       library = package
         |> Cabal.packageDescription
         |> Cabal.library

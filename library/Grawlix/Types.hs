@@ -93,7 +93,6 @@ type ExecutableId = Tagged.Tagged "ExecutableId" Int.Int32
 type ExecutableName = Tagged.Tagged "ExecutableName" Text.Text
 type ExecutableNameId = Tagged.Tagged "ExecutableNameId" Int.Int32
 type LibraryId = Tagged.Tagged "LibraryId" Int.Int32
-type LibraryName = Tagged.Tagged "LibraryName" Text.Text
 type LibraryNameId = Tagged.Tagged "LibraryNameId" Int.Int32
 type License = Tagged.Tagged "License" Text.Text
 type ModuleName = Tagged.Tagged "ModuleName" [Text.Text]
@@ -108,6 +107,19 @@ type RepoTypeId = Tagged.Tagged "RepoTypeId" Int.Int32
 type TestId = Tagged.Tagged "TestId" Int.Int32
 type TestName = Tagged.Tagged "TestName" Text.Text
 type TestNameId = Tagged.Tagged "TestNameId" Int.Int32
+
+
+newtype LibraryName
+  = LibraryName { unwrapLibraryName :: Text.Text }
+  deriving (Eq, Ghc.Generic, Ord, Show)
+
+instance HttpApiData.FromHttpApiData LibraryName where
+  parseUrlPiece urlPiece =
+    fmap LibraryName (HttpApiData.parseUrlPiece urlPiece)
+
+instance Json.ToJSON LibraryName where
+  toJSON = Json.genericToJSON Json.defaultOptions
+    { Json.unwrapUnaryRecords = True }
 
 
 newtype PackageName

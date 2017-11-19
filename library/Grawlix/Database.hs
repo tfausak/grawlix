@@ -120,7 +120,46 @@ selectLibraries = makeQuery
   (Sql.Decode.text
     |> Sql.Decode.value
     |> Sql.Decode.rowsList
-    |> fmap (map Tagged.Tagged))
+    |> fmap (map LibraryName))
+
+
+selectModules :: Sql.Query (PackageName, Version, Revision, LibraryName) [ModuleName]
+selectModules = makeQuery
+  [Quotes.string|
+    select distinct module_names.content
+    from packages
+    inner join package_names
+    on package_names.id = packages.package_name_id
+    inner join versions
+    on versions.id = packages.version_id
+    inner join libraries
+    on libraries.package_id = packages.id
+    inner join library_names
+    on library_names.id = libraries.library_name_id
+    inner join libraries_module_names
+    on libraries_module_names.library_id = libraries.id
+    inner join module_names
+    on module_names.id = libraries_module_names.module_name_id
+    where package_names.content = $1
+    and versions.content = $2
+    and packages.revision = $3
+    and library_names.content = $4
+    order by module_names.content asc
+  |]
+  (Contravariant.contrazip4
+    (Contravariant.contramap unwrapPackageName textParam)
+    (Sql.Encode.int4 |> arrayOf |> Contravariant.contramap unwrapVersion)
+    (Sql.Encode.int4
+      |> Sql.Encode.value
+      |> Contravariant.contramap unwrapRevision)
+    (Contravariant.contramap unwrapLibraryName textParam))
+    (Sql.Decode.text
+      |> Sql.Decode.arrayValue
+      |> Sql.Decode.arrayDimension Monad.replicateM
+      |> Sql.Decode.array
+      |> Sql.Decode.value
+      |> Sql.Decode.rowsList
+      |> fmap (map Tagged.Tagged))
 
 
 selectDependencyId :: Sql.Query (ConstraintId, PackageNameId) DependencyId
@@ -326,7 +365,7 @@ insertLibraryName = makeQuery
     values ( $1 )
     on conflict do nothing
   |]
-  taggedTextParam
+  (Contravariant.contramap unwrapLibraryName textParam)
   Sql.Decode.unit
 
 
@@ -337,7 +376,7 @@ selectLibraryNameId = makeQuery
     from library_names
     where content = $1
   |]
-  taggedTextParam
+  (Contravariant.contramap unwrapLibraryName textParam)
   idResult
 
 
