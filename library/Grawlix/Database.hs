@@ -90,7 +90,7 @@ selectRevisions = makeQuery
   (Sql.Decode.int4
     |> Sql.Decode.value
     |> Sql.Decode.rowsList
-    |> fmap (map Tagged.Tagged))
+    |> fmap (map Revision))
 
 
 selectDependencyId :: Sql.Query (ConstraintId, PackageNameId) DependencyId
@@ -580,7 +580,7 @@ insertPackage = makeQuery
   (Contravariant.contrazip7
     (Contravariant.contramap unwrapPackageName textParam)
     (Sql.Encode.int4 |> arrayOf |> Contravariant.contramap unwrapVersion)
-    idParam
+    (Sql.Encode.int4 |> Sql.Encode.value |> Contravariant.contramap unwrapRevision)
     taggedTextParam
     textParam
     textParam
@@ -604,7 +604,7 @@ selectPackageId = makeQuery
   (Contravariant.contrazip3
     (Contravariant.contramap unwrapPackageName textParam)
     (Sql.Encode.int4 |> arrayOf |> Contravariant.contramap unwrapVersion)
-    idParam)
+    (Sql.Encode.int4 |> Sql.Encode.value |> Contravariant.contramap unwrapRevision))
   idResult
 
 
