@@ -68,7 +68,7 @@ selectVersions = makeQuery
     |> Sql.Decode.array
     |> Sql.Decode.value
     |> Sql.Decode.rowsList
-    |> fmap (map Tagged.Tagged))
+    |> fmap (map Version))
 
 
 selectRevisions :: Sql.Query (PackageName, Version) [Revision]
@@ -86,7 +86,7 @@ selectRevisions = makeQuery
   |]
   (Contravariant.contrazip2
     (Contravariant.contramap unwrapPackageName textParam)
-    (Sql.Encode.int4 |> arrayOf |> contraUntag))
+    (Sql.Encode.int4 |> arrayOf |> Contravariant.contramap unwrapVersion))
   (Sql.Decode.int4
     |> Sql.Decode.value
     |> Sql.Decode.rowsList
@@ -531,7 +531,7 @@ insertVersion = makeQuery
     values ( $1 )
     on conflict do nothing
   |]
-  (Sql.Encode.int4 |> arrayOf |> contraUntag)
+  (Sql.Encode.int4 |> arrayOf |> Contravariant.contramap unwrapVersion)
   Sql.Decode.unit
 
 
@@ -579,7 +579,7 @@ insertPackage = makeQuery
   |]
   (Contravariant.contrazip7
     (Contravariant.contramap unwrapPackageName textParam)
-    (Sql.Encode.int4 |> arrayOf |> contraUntag)
+    (Sql.Encode.int4 |> arrayOf |> Contravariant.contramap unwrapVersion)
     idParam
     taggedTextParam
     textParam
@@ -603,7 +603,7 @@ selectPackageId = makeQuery
   |]
   (Contravariant.contrazip3
     (Contravariant.contramap unwrapPackageName textParam)
-    (Sql.Encode.int4 |> arrayOf |> contraUntag)
+    (Sql.Encode.int4 |> arrayOf |> Contravariant.contramap unwrapVersion)
     idParam)
   idResult
 

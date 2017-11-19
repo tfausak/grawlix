@@ -3,8 +3,6 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE TypeSynonymInstances #-}
 
-{-# OPTIONS_GHC -Wno-orphans #-}
-
 module Grawlix.Types where
 
 import Flow ((|>))
@@ -111,7 +109,6 @@ type Revision = Tagged.Tagged "Revision" Int.Int32
 type TestId = Tagged.Tagged "TestId" Int.Int32
 type TestName = Tagged.Tagged "TestName" Text.Text
 type TestNameId = Tagged.Tagged "TestNameId" Int.Int32
-type Version = Tagged.Tagged "Version" [Int.Int32]
 
 
 newtype PackageName
@@ -127,6 +124,10 @@ instance Json.ToJSON PackageName where
     { Json.unwrapUnaryRecords = True }
 
 
+newtype Version
+  = Version { unwrapVersion :: [Int.Int32] }
+  deriving (Eq, Ghc.Generic, Ord, Show)
+
 instance HttpApiData.FromHttpApiData Version where
   parseUrlPiece urlPiece = urlPiece
     |> Text.unpack
@@ -138,8 +139,12 @@ instance HttpApiData.FromHttpApiData Version where
       version : _ -> version
         |> Cabal.versionNumbers
         |> map intToInt32
-        |> Tagged.Tagged
+        |> Version
         |> Right)
+
+instance Json.ToJSON Version where
+  toJSON = Json.genericToJSON Json.defaultOptions
+    { Json.unwrapUnaryRecords = True }
 
 
 intToInt32 :: Int -> Int.Int32

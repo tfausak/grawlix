@@ -296,7 +296,7 @@ logPackage package exists = Printf.printf "%s\t%s\t%d\t%s\n"
   (package |> packageName |> unwrapPackageName |> Text.unpack)
   (package
     |> packageVersion
-    |> Tagged.untag
+    |> unwrapVersion
     |> map show
     |> List.intercalate ".")
   (package |> packageRevision |> Tagged.untag)
@@ -330,7 +330,7 @@ toPackage package = do
       |> Cabal.pkgVersion
       |> Cabal.versionNumbers
       |> map intToInt32
-      |> Tagged.Tagged
+      |> Version
     , packageRevision = revision |> intToInt32 |> Tagged.Tagged
     , packageLicense = package
       |> Cabal.packageDescription
