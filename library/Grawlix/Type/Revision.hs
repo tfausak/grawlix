@@ -6,15 +6,13 @@ module Grawlix.Type.Revision
   , fromRevision
   ) where
 
-import qualified Data.Aeson as Json
-import qualified Data.Int as Int
-import qualified Web.HttpApiData as HttpApiData
+import Grawlix.Type.Common
 
-newtype Revision = Revision Int.Int32
-  deriving (Eq, HttpApiData.FromHttpApiData, Show, Json.ToJSON)
+newtype Revision = Revision Int32
+  deriving (Eq, FromHttpApiData, Show, ToJSON)
 
-toRevision :: Int.Int32 -> Revision
+toRevision :: Int32 -> Revision
 toRevision = Revision
 
-fromRevision :: Revision -> Int.Int32
+fromRevision :: Revision -> Int32
 fromRevision (Revision x) = x

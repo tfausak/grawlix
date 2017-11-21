@@ -6,15 +6,13 @@ module Grawlix.Type.PackageName
   , fromPackageName
   ) where
 
-import qualified Data.Aeson as Json
-import qualified Data.Text as Text
-import qualified Web.HttpApiData as HttpApiData
+import Grawlix.Type.Common
 
-newtype PackageName = PackageName Text.Text
-  deriving (Eq, HttpApiData.FromHttpApiData, Ord, Show, Json.ToJSON)
+newtype PackageName = PackageName Text
+  deriving (Eq, FromHttpApiData, Ord, Show, ToJSON)
 
-toPackageName :: Text.Text -> PackageName
+toPackageName :: Text -> PackageName
 toPackageName = PackageName
 
-fromPackageName :: PackageName -> Text.Text
+fromPackageName :: PackageName -> Text
 fromPackageName (PackageName x) = x

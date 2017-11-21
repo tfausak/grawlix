@@ -6,15 +6,14 @@ module Grawlix.Type.Executables
   , fromExecutables
   ) where
 
+import Grawlix.Type.Common
 import Grawlix.Type.Executable
 
-import qualified Data.Set as Set
-
-newtype Executables = Executables (Set.Set Executable)
+newtype Executables = Executables (Set Executable)
   deriving (Eq, Show)
 
-toExecutables :: Set.Set Executable -> Executables
+toExecutables :: Set Executable -> Executables
 toExecutables = Executables
 
-fromExecutables :: Executables -> Set.Set Executable
+fromExecutables :: Executables -> Set Executable
 fromExecutables (Executables x) = x

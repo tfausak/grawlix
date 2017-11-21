@@ -6,13 +6,13 @@ module Grawlix.Type.TestId
   , fromTestId
   ) where
 
-import qualified Data.Int as Int
+import Grawlix.Type.Common
 
-newtype TestId = TestId Int.Int32
+newtype TestId = TestId Int32
   deriving (Eq, Show)
 
-toTestId :: Int.Int32 -> TestId
+toTestId :: Int32 -> TestId
 toTestId = TestId
 
-fromTestId :: TestId -> Int.Int32
+fromTestId :: TestId -> Int32
 fromTestId (TestId x) = x

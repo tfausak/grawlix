@@ -6,13 +6,13 @@ module Grawlix.Type.DependencyId
   , fromDependencyId
   ) where
 
-import qualified Data.Int as Int
+import Grawlix.Type.Common
 
-newtype DependencyId = DependencyId Int.Int32
+newtype DependencyId = DependencyId Int32
   deriving (Eq, Show)
 
-toDependencyId :: Int.Int32 -> DependencyId
+toDependencyId :: Int32 -> DependencyId
 toDependencyId = DependencyId
 
-fromDependencyId :: DependencyId -> Int.Int32
+fromDependencyId :: DependencyId -> Int32
 fromDependencyId (DependencyId x) = x

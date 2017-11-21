@@ -6,13 +6,13 @@ module Grawlix.Type.Description
   , fromDescription
   ) where
 
-import qualified Data.Text as Text
+import Grawlix.Type.Common
 
-newtype Description = Description Text.Text
+newtype Description = Description Text
   deriving (Eq, Show)
 
-toDescription :: Text.Text -> Description
+toDescription :: Text -> Description
 toDescription = Description
 
-fromDescription :: Description -> Text.Text
+fromDescription :: Description -> Text
 fromDescription (Description x) = x

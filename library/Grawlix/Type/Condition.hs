@@ -6,13 +6,13 @@ module Grawlix.Type.Condition
   , fromCondition
   ) where
 
-import qualified Data.Text as Text
+import Grawlix.Type.Common
 
-newtype Condition = Condition Text.Text
+newtype Condition = Condition Text
   deriving (Eq, Ord, Show)
 
-toCondition :: Text.Text -> Condition
+toCondition :: Text -> Condition
 toCondition = Condition
 
-fromCondition :: Condition -> Text.Text
+fromCondition :: Condition -> Text
 fromCondition (Condition x) = x

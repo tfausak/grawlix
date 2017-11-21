@@ -6,13 +6,13 @@ module Grawlix.Type.RepoUrl
   , fromRepoUrl
   ) where
 
-import qualified Data.Text as Text
+import Grawlix.Type.Common
 
-newtype RepoUrl = RepoUrl Text.Text
+newtype RepoUrl = RepoUrl Text
   deriving (Eq, Ord, Show)
 
-toRepoUrl :: Text.Text -> RepoUrl
+toRepoUrl :: Text -> RepoUrl
 toRepoUrl = RepoUrl
 
-fromRepoUrl :: RepoUrl -> Text.Text
+fromRepoUrl :: RepoUrl -> Text
 fromRepoUrl (RepoUrl x) = x

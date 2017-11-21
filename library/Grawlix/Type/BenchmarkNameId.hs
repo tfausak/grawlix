@@ -6,13 +6,13 @@ module Grawlix.Type.BenchmarkNameId
   , fromBenchmarkNameId
   ) where
 
-import qualified Data.Int as Int
+import Grawlix.Type.Common
 
-newtype BenchmarkNameId = BenchmarkNameId Int.Int32
+newtype BenchmarkNameId = BenchmarkNameId Int32
   deriving (Eq, Show)
 
-toBenchmarkNameId :: Int.Int32 -> BenchmarkNameId
+toBenchmarkNameId :: Int32 -> BenchmarkNameId
 toBenchmarkNameId = BenchmarkNameId
 
-fromBenchmarkNameId :: BenchmarkNameId -> Int.Int32
+fromBenchmarkNameId :: BenchmarkNameId -> Int32
 fromBenchmarkNameId (BenchmarkNameId x) = x

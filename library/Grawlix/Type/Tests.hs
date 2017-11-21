@@ -6,15 +6,14 @@ module Grawlix.Type.Tests
   , fromTests
   ) where
 
+import Grawlix.Type.Common
 import Grawlix.Type.Test
 
-import qualified Data.Set as Set
-
-newtype Tests = Tests (Set.Set Test)
+newtype Tests = Tests (Set Test)
   deriving (Eq, Show)
 
-toTests :: Set.Set Test -> Tests
+toTests :: Set Test -> Tests
 toTests = Tests
 
-fromTests :: Tests -> Set.Set Test
+fromTests :: Tests -> Set Test
 fromTests (Tests x) = x

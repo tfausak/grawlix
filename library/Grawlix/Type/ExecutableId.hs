@@ -6,13 +6,13 @@ module Grawlix.Type.ExecutableId
   , fromExecutableId
   ) where
 
-import qualified Data.Int as Int
+import Grawlix.Type.Common
 
-newtype ExecutableId = ExecutableId Int.Int32
+newtype ExecutableId = ExecutableId Int32
   deriving (Eq, Show)
 
-toExecutableId :: Int.Int32 -> ExecutableId
+toExecutableId :: Int32 -> ExecutableId
 toExecutableId = ExecutableId
 
-fromExecutableId :: ExecutableId -> Int.Int32
+fromExecutableId :: ExecutableId -> Int32
 fromExecutableId (ExecutableId x) = x

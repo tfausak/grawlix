@@ -6,13 +6,13 @@ module Grawlix.Type.TestName
   , fromTestName
   ) where
 
-import qualified Data.Text as Text
+import Grawlix.Type.Common
 
-newtype TestName = TestName Text.Text
+newtype TestName = TestName Text
   deriving (Eq, Ord, Show)
 
-toTestName :: Text.Text -> TestName
+toTestName :: Text -> TestName
 toTestName = TestName
 
-fromTestName :: TestName -> Text.Text
+fromTestName :: TestName -> Text
 fromTestName (TestName x) = x

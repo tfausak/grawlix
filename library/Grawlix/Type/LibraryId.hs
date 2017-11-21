@@ -6,15 +6,13 @@ module Grawlix.Type.LibraryId
   , fromLibraryId
   ) where
 
-import qualified Data.Aeson as Json
-import qualified Data.Int as Int
-import qualified Web.HttpApiData as HttpApiData
+import Grawlix.Type.Common
 
-newtype LibraryId = LibraryId Int.Int32
-  deriving (Eq, HttpApiData.FromHttpApiData, Show, Json.ToJSON)
+newtype LibraryId = LibraryId Int32
+  deriving (Eq, FromHttpApiData, Show, ToJSON)
 
-toLibraryId :: Int.Int32 -> LibraryId
+toLibraryId :: Int32 -> LibraryId
 toLibraryId = LibraryId
 
-fromLibraryId :: LibraryId -> Int.Int32
+fromLibraryId :: LibraryId -> Int32
 fromLibraryId (LibraryId x) = x

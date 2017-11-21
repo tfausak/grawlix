@@ -6,13 +6,13 @@ module Grawlix.Type.Constraint
   , fromConstraint
   ) where
 
-import qualified Data.Text as Text
+import Grawlix.Type.Common
 
-newtype Constraint = Constraint Text.Text
+newtype Constraint = Constraint Text
   deriving (Eq, Ord, Show)
 
-toConstraint :: Text.Text -> Constraint
+toConstraint :: Text -> Constraint
 toConstraint = Constraint
 
-fromConstraint :: Constraint -> Text.Text
+fromConstraint :: Constraint -> Text
 fromConstraint (Constraint x) = x

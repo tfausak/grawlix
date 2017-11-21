@@ -6,13 +6,13 @@ module Grawlix.Type.PackageUrl
   , fromPackageUrl
   ) where
 
-import qualified Data.Text as Text
+import Grawlix.Type.Common
 
-newtype PackageUrl = PackageUrl Text.Text
+newtype PackageUrl = PackageUrl Text
   deriving (Eq, Show)
 
-toPackageUrl :: Text.Text -> PackageUrl
+toPackageUrl :: Text -> PackageUrl
 toPackageUrl = PackageUrl
 
-fromPackageUrl :: PackageUrl -> Text.Text
+fromPackageUrl :: PackageUrl -> Text
 fromPackageUrl (PackageUrl x) = x

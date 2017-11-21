@@ -6,13 +6,13 @@ module Grawlix.Type.RepoType
   , fromRepoType
   ) where
 
-import qualified Data.Text as Text
+import Grawlix.Type.Common
 
-newtype RepoType = RepoType Text.Text
+newtype RepoType = RepoType Text
   deriving (Eq, Ord, Show)
 
-toRepoType :: Text.Text -> RepoType
+toRepoType :: Text -> RepoType
 toRepoType = RepoType
 
-fromRepoType :: RepoType -> Text.Text
+fromRepoType :: RepoType -> Text
 fromRepoType (RepoType x) = x

@@ -6,13 +6,13 @@ module Grawlix.Type.LibraryName
   , fromLibraryName
   ) where
 
-import qualified Data.Text as Text
+import Grawlix.Type.Common
 
-newtype LibraryName = LibraryName Text.Text
+newtype LibraryName = LibraryName Text
   deriving (Eq, Ord, Show)
 
-toLibraryName :: Text.Text -> LibraryName
+toLibraryName :: Text -> LibraryName
 toLibraryName = LibraryName
 
-fromLibraryName :: LibraryName -> Text.Text
+fromLibraryName :: LibraryName -> Text
 fromLibraryName (LibraryName x) = x

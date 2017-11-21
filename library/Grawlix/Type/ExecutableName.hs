@@ -6,13 +6,13 @@ module Grawlix.Type.ExecutableName
   , fromExecutableName
   ) where
 
-import qualified Data.Text as Text
+import Grawlix.Type.Common
 
-newtype ExecutableName = ExecutableName Text.Text
+newtype ExecutableName = ExecutableName Text
   deriving (Eq, Ord, Show)
 
-toExecutableName :: Text.Text -> ExecutableName
+toExecutableName :: Text -> ExecutableName
 toExecutableName = ExecutableName
 
-fromExecutableName :: ExecutableName -> Text.Text
+fromExecutableName :: ExecutableName -> Text
 fromExecutableName (ExecutableName x) = x

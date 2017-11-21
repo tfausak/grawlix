@@ -6,13 +6,13 @@ module Grawlix.Type.PackageId
   , fromPackageId
   ) where
 
-import qualified Data.Int as Int
+import Grawlix.Type.Common
 
-newtype PackageId = PackageId Int.Int32
+newtype PackageId = PackageId Int32
   deriving (Eq, Show)
 
-toPackageId :: Int.Int32 -> PackageId
+toPackageId :: Int32 -> PackageId
 toPackageId = PackageId
 
-fromPackageId :: PackageId -> Int.Int32
+fromPackageId :: PackageId -> Int32
 fromPackageId (PackageId x) = x

@@ -6,13 +6,13 @@ module Grawlix.Type.License
   , fromLicense
   ) where
 
-import qualified Data.Text as Text
+import Grawlix.Type.Common
 
-newtype License = License Text.Text
+newtype License = License Text
   deriving (Eq, Show)
 
-toLicense :: Text.Text -> License
+toLicense :: Text -> License
 toLicense = License
 
-fromLicense :: License -> Text.Text
+fromLicense :: License -> Text
 fromLicense (License x) = x

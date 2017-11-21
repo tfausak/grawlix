@@ -7,14 +7,13 @@ module Grawlix.Type.Categories
   ) where
 
 import Grawlix.Type.Category
+import Grawlix.Type.Common
 
-import qualified Data.Set as Set
-
-newtype Categories = Categories (Set.Set Category)
+newtype Categories = Categories (Set Category)
   deriving (Eq, Show)
 
-toCategories :: Set.Set Category -> Categories
+toCategories :: Set Category -> Categories
 toCategories = Categories
 
-fromCategories :: Categories -> Set.Set Category
+fromCategories :: Categories -> Set Category
 fromCategories (Categories x) = x

@@ -6,16 +6,15 @@ module Grawlix.Type.Dependencies
   , fromDependencies
   ) where
 
+import Grawlix.Type.Common
 import Grawlix.Type.Constraint
 import Grawlix.Type.PackageName
 
-import qualified Data.Map as Map
-
-newtype Dependencies = Dependencies (Map.Map PackageName Constraint)
+newtype Dependencies = Dependencies (Map PackageName Constraint)
   deriving (Eq, Ord, Show)
 
-toDependencies :: Map.Map PackageName Constraint -> Dependencies
+toDependencies :: Map PackageName Constraint -> Dependencies
 toDependencies = Dependencies
 
-fromDependencies :: Dependencies -> Map.Map PackageName Constraint
+fromDependencies :: Dependencies -> Map PackageName Constraint
 fromDependencies (Dependencies x) = x

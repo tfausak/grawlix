@@ -6,13 +6,13 @@ module Grawlix.Type.ConditionId
   , fromConditionId
   ) where
 
-import qualified Data.Int as Int
+import Grawlix.Type.Common
 
-newtype ConditionId = ConditionId Int.Int32
+newtype ConditionId = ConditionId Int32
   deriving (Eq, Show)
 
-toConditionId :: Int.Int32 -> ConditionId
+toConditionId :: Int32 -> ConditionId
 toConditionId = ConditionId
 
-fromConditionId :: ConditionId -> Int.Int32
+fromConditionId :: ConditionId -> Int32
 fromConditionId (ConditionId x) = x

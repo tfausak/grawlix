@@ -6,13 +6,13 @@ module Grawlix.Type.BenchmarkName
   , fromBenchmarkName
   ) where
 
-import qualified Data.Text as Text
+import Grawlix.Type.Common
 
-newtype BenchmarkName = BenchmarkName Text.Text
+newtype BenchmarkName = BenchmarkName Text
   deriving (Eq, Ord, Show)
 
-toBenchmarkName :: Text.Text -> BenchmarkName
+toBenchmarkName :: Text -> BenchmarkName
 toBenchmarkName = BenchmarkName
 
-fromBenchmarkName :: BenchmarkName -> Text.Text
+fromBenchmarkName :: BenchmarkName -> Text
 fromBenchmarkName (BenchmarkName x) = x

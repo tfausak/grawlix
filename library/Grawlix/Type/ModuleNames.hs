@@ -6,15 +6,14 @@ module Grawlix.Type.ModuleNames
   , fromModuleNames
   ) where
 
+import Grawlix.Type.Common
 import Grawlix.Type.ModuleName
 
-import qualified Data.Set as Set
-
-newtype ModuleNames = ModuleNames (Set.Set ModuleName)
+newtype ModuleNames = ModuleNames (Set ModuleName)
   deriving (Eq, Ord, Show)
 
-toModuleNames :: Set.Set ModuleName -> ModuleNames
+toModuleNames :: Set ModuleName -> ModuleNames
 toModuleNames = ModuleNames
 
-fromModuleNames :: ModuleNames -> Set.Set ModuleName
+fromModuleNames :: ModuleNames -> Set ModuleName
 fromModuleNames (ModuleNames x) = x

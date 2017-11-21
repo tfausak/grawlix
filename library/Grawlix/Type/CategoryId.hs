@@ -6,13 +6,13 @@ module Grawlix.Type.CategoryId
   , fromCategoryId
   ) where
 
-import qualified Data.Int as Int
+import Grawlix.Type.Common
 
-newtype CategoryId = CategoryId Int.Int32
+newtype CategoryId = CategoryId Int32
   deriving (Eq, Show)
 
-toCategoryId :: Int.Int32 -> CategoryId
+toCategoryId :: Int32 -> CategoryId
 toCategoryId = CategoryId
 
-fromCategoryId :: CategoryId -> Int.Int32
+fromCategoryId :: CategoryId -> Int32
 fromCategoryId (CategoryId x) = x

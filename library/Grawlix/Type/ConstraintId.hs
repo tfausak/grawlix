@@ -6,13 +6,13 @@ module Grawlix.Type.ConstraintId
   , fromConstraintId
   ) where
 
-import qualified Data.Int as Int
+import Grawlix.Type.Common
 
-newtype ConstraintId = ConstraintId Int.Int32
+newtype ConstraintId = ConstraintId Int32
   deriving (Eq, Show)
 
-toConstraintId :: Int.Int32 -> ConstraintId
+toConstraintId :: Int32 -> ConstraintId
 toConstraintId = ConstraintId
 
-fromConstraintId :: ConstraintId -> Int.Int32
+fromConstraintId :: ConstraintId -> Int32
 fromConstraintId (ConstraintId x) = x

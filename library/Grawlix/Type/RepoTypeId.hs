@@ -6,13 +6,13 @@ module Grawlix.Type.RepoTypeId
   , fromRepoTypeId
   ) where
 
-import qualified Data.Int as Int
+import Grawlix.Type.Common
 
-newtype RepoTypeId = RepoTypeId Int.Int32
+newtype RepoTypeId = RepoTypeId Int32
   deriving (Eq, Show)
 
-toRepoTypeId :: Int.Int32 -> RepoTypeId
+toRepoTypeId :: Int32 -> RepoTypeId
 toRepoTypeId = RepoTypeId
 
-fromRepoTypeId :: RepoTypeId -> Int.Int32
+fromRepoTypeId :: RepoTypeId -> Int32
 fromRepoTypeId (RepoTypeId x) = x

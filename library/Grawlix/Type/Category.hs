@@ -6,13 +6,13 @@ module Grawlix.Type.Category
   , fromCategory
   ) where
 
-import qualified Data.Text as Text
+import Grawlix.Type.Common
 
-newtype Category = Category Text.Text
+newtype Category = Category Text
   deriving (Eq, Ord, Show)
 
-toCategory :: Text.Text -> Category
+toCategory :: Text -> Category
 toCategory = Category
 
-fromCategory :: Category -> Text.Text
+fromCategory :: Category -> Text
 fromCategory (Category x) = x

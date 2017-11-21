@@ -6,13 +6,13 @@ module Grawlix.Type.RepoKind
   , fromRepoKind
   ) where
 
-import qualified Data.Text as Text
+import Grawlix.Type.Common
 
-newtype RepoKind = RepoKind Text.Text
+newtype RepoKind = RepoKind Text
   deriving (Eq, Ord, Show)
 
-toRepoKind :: Text.Text -> RepoKind
+toRepoKind :: Text -> RepoKind
 toRepoKind = RepoKind
 
-fromRepoKind :: RepoKind -> Text.Text
+fromRepoKind :: RepoKind -> Text
 fromRepoKind (RepoKind x) = x

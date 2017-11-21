@@ -6,15 +6,14 @@ module Grawlix.Type.Libraries
   , fromLibraries
   ) where
 
+import Grawlix.Type.Common
 import Grawlix.Type.Library
 
-import qualified Data.Set as Set
-
-newtype Libraries = Libraries (Set.Set Library)
+newtype Libraries = Libraries (Set Library)
   deriving (Eq, Show)
 
-toLibraries :: Set.Set Library -> Libraries
+toLibraries :: Set Library -> Libraries
 toLibraries = Libraries
 
-fromLibraries :: Libraries -> Set.Set Library
+fromLibraries :: Libraries -> Set Library
 fromLibraries (Libraries x) = x

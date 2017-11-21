@@ -6,13 +6,13 @@ module Grawlix.Type.Synopsis
   , fromSynopsis
   ) where
 
-import qualified Data.Text as Text
+import Grawlix.Type.Common
 
-newtype Synopsis = Synopsis Text.Text
+newtype Synopsis = Synopsis Text
   deriving (Eq, Show)
 
-toSynopsis :: Text.Text -> Synopsis
+toSynopsis :: Text -> Synopsis
 toSynopsis = Synopsis
 
-fromSynopsis :: Synopsis -> Text.Text
+fromSynopsis :: Synopsis -> Text
 fromSynopsis (Synopsis x) = x
