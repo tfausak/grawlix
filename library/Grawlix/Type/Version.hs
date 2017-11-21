@@ -20,23 +20,26 @@ newtype Version =
 
 instance FromHttpApiData Version where
   parseUrlPiece =
-    let fromList x =
-          case x of
-            [] -> fail "invalid version number"
-            y:_ -> pure y
-        toInt32 x =
-          if x > fromIntegral (maxBound :: Int32)
-            then fail "invalid version component"
-            else pure (fromIntegral x)
-    in fmap toVersion .
-       Monad.join .
-       fmap (mapM toInt32 . Cabal.versionNumbers) .
-       fromList .
-       map fst .
-       filter (null . snd) . Cabal.readP_to_S Cabal.parse . Text.unpack
+    fmap toVersion .
+    Monad.join .
+    fmap (mapM intToInt32 . Cabal.versionNumbers) .
+    safeHead .
+    map fst . filter (null . snd) . Cabal.readP_to_S Cabal.parse . Text.unpack
 
 toVersion :: [Int32] -> Version
 toVersion = Version
 
 fromVersion :: Version -> [Int32]
 fromVersion (Version x) = x
+
+safeHead :: Monad m => [a] -> m a
+safeHead x =
+  case x of
+    [] -> fail "empty list"
+    y:_ -> pure y
+
+intToInt32 :: Monad m => Int -> m Int32
+intToInt32 x =
+  if x > fromIntegral (maxBound :: Int32)
+    then fail "too big for int32"
+    else pure (fromIntegral x)

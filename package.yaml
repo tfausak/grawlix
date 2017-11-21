@@ -15,7 +15,11 @@ synopsis: Comment on Haskell documentation.
 dependencies:
   - base
 ghc-options:
-  - -Wall
+  - -Weverything
+  - -Wno-implicit-prelude
+  - -Wno-missing-import-lists
+  - -Wno-safe
+  - -Wno-unsafe
 
 library:
   dependencies:
