@@ -1,5 +1,3 @@
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
-
 module Grawlix.Type.Synopsis
   ( Synopsis
   , toSynopsis
@@ -8,7 +6,8 @@ module Grawlix.Type.Synopsis
 
 import Grawlix.Type.Common
 
-newtype Synopsis = Synopsis Text
+newtype Synopsis =
+  Synopsis Text
   deriving (Eq, Show)
 
 toSynopsis :: Text -> Synopsis

@@ -8,7 +8,8 @@ module Grawlix.Type.Revision
 
 import Grawlix.Type.Common
 
-newtype Revision = Revision Int32
+newtype Revision =
+  Revision Int32
   deriving (Eq, FromHttpApiData, Show, ToJSON)
 
 toRevision :: Int32 -> Revision

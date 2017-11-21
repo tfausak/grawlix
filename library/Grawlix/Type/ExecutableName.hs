@@ -1,5 +1,3 @@
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
-
 module Grawlix.Type.ExecutableName
   ( ExecutableName
   , toExecutableName
@@ -8,7 +6,8 @@ module Grawlix.Type.ExecutableName
 
 import Grawlix.Type.Common
 
-newtype ExecutableName = ExecutableName Text
+newtype ExecutableName =
+  ExecutableName Text
   deriving (Eq, Ord, Show)
 
 toExecutableName :: Text -> ExecutableName

@@ -1,5 +1,3 @@
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
-
 module Grawlix.Type.RepoKind
   ( RepoKind
   , toRepoKind
@@ -8,7 +6,8 @@ module Grawlix.Type.RepoKind
 
 import Grawlix.Type.Common
 
-newtype RepoKind = RepoKind Text
+newtype RepoKind =
+  RepoKind Text
   deriving (Eq, Ord, Show)
 
 toRepoKind :: Text -> RepoKind

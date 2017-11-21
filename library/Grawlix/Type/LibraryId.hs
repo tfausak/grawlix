@@ -8,7 +8,8 @@ module Grawlix.Type.LibraryId
 
 import Grawlix.Type.Common
 
-newtype LibraryId = LibraryId Int32
+newtype LibraryId =
+  LibraryId Int32
   deriving (Eq, FromHttpApiData, Show, ToJSON)
 
 toLibraryId :: Int32 -> LibraryId

@@ -1,5 +1,3 @@
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
-
 module Grawlix.Type.PackageId
   ( PackageId
   , toPackageId
@@ -8,7 +6,8 @@ module Grawlix.Type.PackageId
 
 import Grawlix.Type.Common
 
-newtype PackageId = PackageId Int32
+newtype PackageId =
+  PackageId Int32
   deriving (Eq, Show)
 
 toPackageId :: Int32 -> PackageId

@@ -1,5 +1,3 @@
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
-
 module Grawlix.Type.Libraries
   ( Libraries
   , toLibraries
@@ -9,7 +7,8 @@ module Grawlix.Type.Libraries
 import Grawlix.Type.Common
 import Grawlix.Type.Library
 
-newtype Libraries = Libraries (Set Library)
+newtype Libraries =
+  Libraries (Set Library)
   deriving (Eq, Show)
 
 toLibraries :: Set Library -> Libraries

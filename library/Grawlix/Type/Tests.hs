@@ -1,5 +1,3 @@
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
-
 module Grawlix.Type.Tests
   ( Tests
   , toTests
@@ -9,7 +7,8 @@ module Grawlix.Type.Tests
 import Grawlix.Type.Common
 import Grawlix.Type.Test
 
-newtype Tests = Tests (Set Test)
+newtype Tests =
+  Tests (Set Test)
   deriving (Eq, Show)
 
 toTests :: Set Test -> Tests

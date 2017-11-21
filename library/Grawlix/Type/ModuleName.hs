@@ -8,7 +8,8 @@ module Grawlix.Type.ModuleName
 
 import Grawlix.Type.Common
 
-newtype ModuleName = ModuleName [Text]
+newtype ModuleName =
+  ModuleName [Text]
   deriving (Eq, Ord, Show, ToJSON)
 
 toModuleName :: [Text] -> ModuleName

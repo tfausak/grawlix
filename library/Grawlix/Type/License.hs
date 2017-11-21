@@ -1,5 +1,3 @@
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
-
 module Grawlix.Type.License
   ( License
   , toLicense
@@ -8,7 +6,8 @@ module Grawlix.Type.License
 
 import Grawlix.Type.Common
 
-newtype License = License Text
+newtype License =
+  License Text
   deriving (Eq, Show)
 
 toLicense :: Text -> License

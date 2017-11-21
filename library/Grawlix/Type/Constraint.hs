@@ -1,5 +1,3 @@
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
-
 module Grawlix.Type.Constraint
   ( Constraint
   , toConstraint
@@ -8,7 +6,8 @@ module Grawlix.Type.Constraint
 
 import Grawlix.Type.Common
 
-newtype Constraint = Constraint Text
+newtype Constraint =
+  Constraint Text
   deriving (Eq, Ord, Show)
 
 toConstraint :: Text -> Constraint

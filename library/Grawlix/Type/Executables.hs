@@ -1,5 +1,3 @@
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
-
 module Grawlix.Type.Executables
   ( Executables
   , toExecutables
@@ -9,7 +7,8 @@ module Grawlix.Type.Executables
 import Grawlix.Type.Common
 import Grawlix.Type.Executable
 
-newtype Executables = Executables (Set Executable)
+newtype Executables =
+  Executables (Set Executable)
   deriving (Eq, Show)
 
 toExecutables :: Set Executable -> Executables

@@ -1,5 +1,3 @@
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
-
 module Grawlix.Type.BenchmarkName
   ( BenchmarkName
   , toBenchmarkName
@@ -8,7 +6,8 @@ module Grawlix.Type.BenchmarkName
 
 import Grawlix.Type.Common
 
-newtype BenchmarkName = BenchmarkName Text
+newtype BenchmarkName =
+  BenchmarkName Text
   deriving (Eq, Ord, Show)
 
 toBenchmarkName :: Text -> BenchmarkName

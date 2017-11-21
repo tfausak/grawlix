@@ -1,5 +1,3 @@
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
-
 module Grawlix.Type.LibraryName
   ( LibraryName
   , toLibraryName
@@ -8,7 +6,8 @@ module Grawlix.Type.LibraryName
 
 import Grawlix.Type.Common
 
-newtype LibraryName = LibraryName Text
+newtype LibraryName =
+  LibraryName Text
   deriving (Eq, Ord, Show)
 
 toLibraryName :: Text -> LibraryName

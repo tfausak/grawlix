@@ -1,5 +1,3 @@
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
-
 module Grawlix.Type.Categories
   ( Categories
   , toCategories
@@ -9,7 +7,8 @@ module Grawlix.Type.Categories
 import Grawlix.Type.Category
 import Grawlix.Type.Common
 
-newtype Categories = Categories (Set Category)
+newtype Categories =
+  Categories (Set Category)
   deriving (Eq, Show)
 
 toCategories :: Set Category -> Categories

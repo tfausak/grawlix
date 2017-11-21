@@ -1,5 +1,3 @@
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
-
 module Grawlix.Type.LibraryNameId
   ( LibraryNameId
   , toLibraryNameId
@@ -8,7 +6,8 @@ module Grawlix.Type.LibraryNameId
 
 import Grawlix.Type.Common
 
-newtype LibraryNameId = LibraryNameId Int32
+newtype LibraryNameId =
+  LibraryNameId Int32
   deriving (Eq, Show)
 
 toLibraryNameId :: Int32 -> LibraryNameId

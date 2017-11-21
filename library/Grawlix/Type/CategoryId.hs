@@ -1,5 +1,3 @@
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
-
 module Grawlix.Type.CategoryId
   ( CategoryId
   , toCategoryId
@@ -8,7 +6,8 @@ module Grawlix.Type.CategoryId
 
 import Grawlix.Type.Common
 
-newtype CategoryId = CategoryId Int32
+newtype CategoryId =
+  CategoryId Int32
   deriving (Eq, Show)
 
 toCategoryId :: Int32 -> CategoryId

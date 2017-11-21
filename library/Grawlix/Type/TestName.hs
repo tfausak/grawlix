@@ -1,5 +1,3 @@
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
-
 module Grawlix.Type.TestName
   ( TestName
   , toTestName
@@ -8,7 +6,8 @@ module Grawlix.Type.TestName
 
 import Grawlix.Type.Common
 
-newtype TestName = TestName Text
+newtype TestName =
+  TestName Text
   deriving (Eq, Ord, Show)
 
 toTestName :: Text -> TestName

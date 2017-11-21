@@ -1,5 +1,3 @@
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
-
 module Grawlix.Type.Repos
   ( Repos
   , toRepos
@@ -9,7 +7,8 @@ module Grawlix.Type.Repos
 import Grawlix.Type.Common
 import Grawlix.Type.Repo
 
-newtype Repos = Repos (Set Repo)
+newtype Repos =
+  Repos (Set Repo)
   deriving (Eq, Show)
 
 toRepos :: Set Repo -> Repos

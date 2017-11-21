@@ -1,5 +1,3 @@
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
-
 module Grawlix.Type.Category
   ( Category
   , toCategory
@@ -8,7 +6,8 @@ module Grawlix.Type.Category
 
 import Grawlix.Type.Common
 
-newtype Category = Category Text
+newtype Category =
+  Category Text
   deriving (Eq, Ord, Show)
 
 toCategory :: Text -> Category

@@ -1,5 +1,3 @@
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
-
 module Grawlix.Type.ModuleNameId
   ( ModuleNameId
   , toModuleNameId
@@ -8,7 +6,8 @@ module Grawlix.Type.ModuleNameId
 
 import Grawlix.Type.Common
 
-newtype ModuleNameId = ModuleNameId Int32
+newtype ModuleNameId =
+  ModuleNameId Int32
   deriving (Eq, Show)
 
 toModuleNameId :: Int32 -> ModuleNameId

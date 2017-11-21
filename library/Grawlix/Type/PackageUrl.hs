@@ -1,5 +1,3 @@
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
-
 module Grawlix.Type.PackageUrl
   ( PackageUrl
   , toPackageUrl
@@ -8,7 +6,8 @@ module Grawlix.Type.PackageUrl
 
 import Grawlix.Type.Common
 
-newtype PackageUrl = PackageUrl Text
+newtype PackageUrl =
+  PackageUrl Text
   deriving (Eq, Show)
 
 toPackageUrl :: Text -> PackageUrl

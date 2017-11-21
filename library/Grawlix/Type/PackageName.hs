@@ -8,7 +8,8 @@ module Grawlix.Type.PackageName
 
 import Grawlix.Type.Common
 
-newtype PackageName = PackageName Text
+newtype PackageName =
+  PackageName Text
   deriving (Eq, FromHttpApiData, Ord, Show, ToJSON)
 
 toPackageName :: Text -> PackageName

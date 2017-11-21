@@ -1,5 +1,3 @@
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
-
 module Grawlix.Type.VersionBound
   ( VersionBound
   , toVersionBound
@@ -8,7 +6,8 @@ module Grawlix.Type.VersionBound
 
 import qualified Distribution.Version as Cabal
 
-newtype VersionBound = VersionBound Cabal.VersionRange
+newtype VersionBound =
+  VersionBound Cabal.VersionRange
   deriving (Eq, Show)
 
 toVersionBound :: Cabal.VersionRange -> VersionBound

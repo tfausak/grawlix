@@ -1,5 +1,3 @@
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
-
 module Grawlix.Type.ExecutableId
   ( ExecutableId
   , toExecutableId
@@ -8,7 +6,8 @@ module Grawlix.Type.ExecutableId
 
 import Grawlix.Type.Common
 
-newtype ExecutableId = ExecutableId Int32
+newtype ExecutableId =
+  ExecutableId Int32
   deriving (Eq, Show)
 
 toExecutableId :: Int32 -> ExecutableId

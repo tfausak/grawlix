@@ -1,5 +1,3 @@
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
-
 module Grawlix.Type.Benchmarks
   ( Benchmarks
   , toBenchmarks
@@ -9,7 +7,8 @@ module Grawlix.Type.Benchmarks
 import Grawlix.Type.Benchmark
 import Grawlix.Type.Common
 
-newtype Benchmarks = Benchmarks (Set Benchmark)
+newtype Benchmarks =
+  Benchmarks (Set Benchmark)
   deriving (Eq, Show)
 
 toBenchmarks :: Set Benchmark -> Benchmarks

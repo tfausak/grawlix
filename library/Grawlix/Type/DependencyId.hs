@@ -1,5 +1,3 @@
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
-
 module Grawlix.Type.DependencyId
   ( DependencyId
   , toDependencyId
@@ -8,7 +6,8 @@ module Grawlix.Type.DependencyId
 
 import Grawlix.Type.Common
 
-newtype DependencyId = DependencyId Int32
+newtype DependencyId =
+  DependencyId Int32
   deriving (Eq, Show)
 
 toDependencyId :: Int32 -> DependencyId

@@ -1,5 +1,3 @@
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
-
 module Grawlix.Type.RepoKindId
   ( RepoKindId
   , toRepoKindId
@@ -8,7 +6,8 @@ module Grawlix.Type.RepoKindId
 
 import Grawlix.Type.Common
 
-newtype RepoKindId = RepoKindId Int32
+newtype RepoKindId =
+  RepoKindId Int32
   deriving (Eq, Show)
 
 toRepoKindId :: Int32 -> RepoKindId

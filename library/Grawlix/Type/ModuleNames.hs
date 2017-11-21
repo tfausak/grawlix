@@ -1,5 +1,3 @@
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
-
 module Grawlix.Type.ModuleNames
   ( ModuleNames
   , toModuleNames
@@ -9,7 +7,8 @@ module Grawlix.Type.ModuleNames
 import Grawlix.Type.Common
 import Grawlix.Type.ModuleName
 
-newtype ModuleNames = ModuleNames (Set ModuleName)
+newtype ModuleNames =
+  ModuleNames (Set ModuleName)
   deriving (Eq, Ord, Show)
 
 toModuleNames :: Set ModuleName -> ModuleNames

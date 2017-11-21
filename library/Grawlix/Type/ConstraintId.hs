@@ -1,5 +1,3 @@
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
-
 module Grawlix.Type.ConstraintId
   ( ConstraintId
   , toConstraintId
@@ -8,7 +6,8 @@ module Grawlix.Type.ConstraintId
 
 import Grawlix.Type.Common
 
-newtype ConstraintId = ConstraintId Int32
+newtype ConstraintId =
+  ConstraintId Int32
   deriving (Eq, Show)
 
 toConstraintId :: Int32 -> ConstraintId

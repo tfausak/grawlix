@@ -1,5 +1,3 @@
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
-
 module Grawlix.Type.RepoUrl
   ( RepoUrl
   , toRepoUrl
@@ -8,7 +6,8 @@ module Grawlix.Type.RepoUrl
 
 import Grawlix.Type.Common
 
-newtype RepoUrl = RepoUrl Text
+newtype RepoUrl =
+  RepoUrl Text
   deriving (Eq, Ord, Show)
 
 toRepoUrl :: Text -> RepoUrl

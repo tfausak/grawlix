@@ -1,5 +1,3 @@
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
-
 module Grawlix.Type.BenchmarkNameId
   ( BenchmarkNameId
   , toBenchmarkNameId
@@ -8,7 +6,8 @@ module Grawlix.Type.BenchmarkNameId
 
 import Grawlix.Type.Common
 
-newtype BenchmarkNameId = BenchmarkNameId Int32
+newtype BenchmarkNameId =
+  BenchmarkNameId Int32
   deriving (Eq, Show)
 
 toBenchmarkNameId :: Int32 -> BenchmarkNameId

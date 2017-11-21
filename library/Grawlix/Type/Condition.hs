@@ -1,5 +1,3 @@
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
-
 module Grawlix.Type.Condition
   ( Condition
   , toCondition
@@ -8,7 +6,8 @@ module Grawlix.Type.Condition
 
 import Grawlix.Type.Common
 
-newtype Condition = Condition Text
+newtype Condition =
+  Condition Text
   deriving (Eq, Ord, Show)
 
 toCondition :: Text -> Condition

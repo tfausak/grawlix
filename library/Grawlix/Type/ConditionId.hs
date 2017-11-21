@@ -1,5 +1,3 @@
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
-
 module Grawlix.Type.ConditionId
   ( ConditionId
   , toConditionId
@@ -8,7 +6,8 @@ module Grawlix.Type.ConditionId
 
 import Grawlix.Type.Common
 
-newtype ConditionId = ConditionId Int32
+newtype ConditionId =
+  ConditionId Int32
   deriving (Eq, Show)
 
 toConditionId :: Int32 -> ConditionId
