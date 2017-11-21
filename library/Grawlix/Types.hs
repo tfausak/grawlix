@@ -50,7 +50,7 @@ module Grawlix.Types
   , module Grawlix.Type.TestNameId
   , module Grawlix.Type.Tests
   , module Grawlix.Type.Version
-  , module Grawlix.Type.VersionRange
+  , module Grawlix.Type.VersionBound
   ) where
 
 import Grawlix.Type.Benchmark
@@ -104,4 +104,4 @@ import Grawlix.Type.TestName
 import Grawlix.Type.TestNameId
 import Grawlix.Type.Tests
 import Grawlix.Type.Version
-import Grawlix.Type.VersionRange
+import Grawlix.Type.VersionBound

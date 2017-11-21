@@ -3,9 +3,9 @@ module Grawlix.Type.Dependency
   ) where
 
 import Grawlix.Type.PackageName
-import Grawlix.Type.VersionRange
+import Grawlix.Type.VersionBound
 
 data Dependency = Dependency
   { dependencyPackage :: PackageName
-  , dependencyVersionRange :: VersionRange
+  , dependencyVersionBound :: VersionBound
   } deriving (Eq, Show)

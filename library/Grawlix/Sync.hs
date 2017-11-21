@@ -542,7 +542,7 @@ renderConfVar confVar = case confVar of
 fromDependencyList :: [Dependency] -> Dependencies
 fromDependencyList dependencies = dependencies
   |> map (\ dependency ->
-    (dependencyPackage dependency, dependency |> dependencyVersionRange |> fromVersionRange))
+    (dependencyPackage dependency, dependency |> dependencyVersionBound |> fromVersionBound))
   |> Map.fromListWith Cabal.intersectVersionRanges
   |> Map.map (\ versionRange -> versionRange
     |> Cabal.simplifyVersionRange
@@ -558,7 +558,7 @@ toDependency (Cabal.Dependency packageName versionRange) = Dependency
     |> Cabal.unPackageName
     |> Text.pack
     |> toPackageName
-  , dependencyVersionRange = toVersionRange versionRange
+  , dependencyVersionBound = toVersionBound versionRange
   }
 
 
