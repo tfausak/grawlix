@@ -1,5 +1,4 @@
 {-# LANGUAGE NamedFieldPuns #-}
-{-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
 module Grawlix.Sync (main) where
@@ -20,10 +19,11 @@ import qualified Data.ByteString.Base64 as Base64
 import qualified Data.ByteString.Lazy as LazyBytes
 import qualified Data.Foldable as Foldable
 import qualified Data.Functor as Functor
+import qualified Data.Int as Int
 import qualified Data.List as List
 import qualified Data.Map as Map
 import qualified Data.Maybe as Maybe
-import qualified Data.Tagged as Tagged
+import qualified Data.Set as Set
 import qualified Data.Text as Text
 import qualified Data.Text.Encoding as Text
 import qualified Data.Text.Lazy as LazyText
@@ -144,12 +144,12 @@ handlePackage connection package = do
 
     packageId <- runQuery connection selectPackageId (name, version, revision)
 
-    package |> packageCategories |> mapM_ (\ category -> do
+    package |> packageCategories |> fromCategories |> Set.toList |> mapM_ (\ category -> do
       runQuery connection insertCategory category
       categoryId <- runQuery connection selectCategoryId category
       runQuery connection insertCategoryPackage (categoryId, packageId))
 
-    package |> packageRepos |> mapM_ (\ repo -> do
+    package |> packageRepos |> fromRepos |> Set.toList |> mapM_ (\ repo -> do
       let kind = repoKind repo
       runQuery connection insertRepoKind kind
       kindId <- runQuery connection selectRepoKindId kind
@@ -163,7 +163,7 @@ handlePackage connection package = do
       repoId <- runQuery connection selectRepoId (kindId, typeId, url)
       runQuery connection insertPackageRepo (packageId, repoId))
 
-    package |> packageLibraries |> mapM_ (\ library -> do
+    package |> packageLibraries |> fromLibraries |> Set.toList |> mapM_ (\ library -> do
       let Library { libraryName, libraryCondition } = library
 
       runQuery connection insertLibraryName libraryName
@@ -176,13 +176,14 @@ handlePackage connection package = do
       libraryId <- runQuery connection selectLibraryId
         (packageId, libraryNameId, conditionId)
 
-      library |> libraryModules |> mapM_ (\ moduleName -> do
+      library |> libraryModules |> fromModuleNames |> Set.toList |> mapM_ (\ moduleName -> do
         runQuery connection insertModuleName moduleName
         moduleNameId <- runQuery connection selectModuleNameId moduleName
         runQuery connection insertLibraryModuleName (libraryId, moduleNameId))
 
       library
         |> libraryDependencies
+        |> fromDependencies
         |> Map.toAscList
         |> mapM_ (\ (packageName, constraint) -> do
           runQuery connection insertConstraint constraint
@@ -197,7 +198,7 @@ handlePackage connection package = do
           runQuery connection insertDependencyLibrary
             (dependencyId, libraryId)))
 
-    package |> packageExecutables |> mapM_ (\ executable -> do
+    package |> packageExecutables |> fromExecutables |> Set.toList |> mapM_ (\ executable -> do
       let Executable { executableName, executableCondition } = executable
 
       runQuery connection insertExecutableName executableName
@@ -214,6 +215,7 @@ handlePackage connection package = do
 
       executable
         |> executableDependencies
+        |> fromDependencies
         |> Map.toAscList
         |> mapM_ (\ (packageName, constraint) -> do
           runQuery connection insertConstraint constraint
@@ -229,7 +231,7 @@ handlePackage connection package = do
           runQuery connection insertDependencyExecutable
             (dependencyId, executableId)))
 
-    package |> packageTests |> mapM_ (\ test -> do
+    package |> packageTests |> fromTests |> Set.toList |> mapM_ (\ test -> do
       let Test { testName, testCondition } = test
 
       runQuery connection insertTestName testName
@@ -244,6 +246,7 @@ handlePackage connection package = do
 
       test
         |> testDependencies
+        |> fromDependencies
         |> Map.toAscList
         |> mapM_ (\ (packageName, constraint) -> do
           runQuery connection insertConstraint constraint
@@ -258,7 +261,7 @@ handlePackage connection package = do
 
           runQuery connection insertDependencyTest (dependencyId, testId)))
 
-    package |> packageBenchmarks |> mapM_ (\ benchmark -> do
+    package |> packageBenchmarks |> fromBenchmarks |> Set.toList |> mapM_ (\ benchmark -> do
       let Benchmark { benchmarkName, benchmarkCondition } = benchmark
 
       runQuery connection insertBenchmarkName benchmarkName
@@ -275,6 +278,7 @@ handlePackage connection package = do
 
       benchmark
         |> benchmarkDependencies
+        |> fromDependencies
         |> Map.toAscList
         |> mapM_ (\ (packageName, constraint) -> do
           runQuery connection insertConstraint constraint
@@ -293,13 +297,13 @@ handlePackage connection package = do
 
 logPackage :: Package -> Bool -> IO ()
 logPackage package exists = Printf.printf "%s\t%s\t%d\t%s\n"
-  (package |> packageName |> unwrapPackageName |> Text.unpack)
+  (package |> packageName |> fromPackageName |> Text.unpack)
   (package
     |> packageVersion
-    |> unwrapVersion
+    |> fromVersion
     |> map show
     |> List.intercalate ".")
-  (package |> packageRevision |> unwrapRevision)
+  (package |> packageRevision |> fromRevision)
   (if exists then "old" else "new")
 
 
@@ -312,10 +316,20 @@ toPackage package = do
     |> Maybe.fromMaybe "0"
     |> Read.readMaybe
     |> fromJust "failed to read revision"
+    |> fmap intToInt32
+    |> Monad.join
+    |> fmap toRevision
   repos <- package
     |> Cabal.packageDescription
     |> Cabal.sourceRepos
     |> mapM toRepo
+  version <- package
+    |> Cabal.packageDescription
+    |> Cabal.package
+    |> Cabal.pkgVersion
+    |> Cabal.versionNumbers
+    |> mapM intToInt32
+    |> fmap toVersion
   pure Package
     { packageName = package
       |> Cabal.packageDescription
@@ -323,29 +337,25 @@ toPackage package = do
       |> Cabal.pkgName
       |> Cabal.unPackageName
       |> Text.pack
-      |> PackageName
-    , packageVersion = package
-      |> Cabal.packageDescription
-      |> Cabal.package
-      |> Cabal.pkgVersion
-      |> Cabal.versionNumbers
-      |> map intToInt32
-      |> Version
-    , packageRevision = revision |> intToInt32 |> Revision
+      |> toPackageName
+    , packageVersion = version
+    , packageRevision = revision
     , packageLicense = package
       |> Cabal.packageDescription
       |> Cabal.license
       |> Cabal.display
       |> Text.pack
-      |> Tagged.Tagged
+      |> toLicense
     , packageSynopsis = package
       |> Cabal.packageDescription
       |> Cabal.synopsis
       |> Text.pack
+      |> toSynopsis
     , packageDescription = package
       |> Cabal.packageDescription
       |> Cabal.description
       |> Text.pack
+      |> toDescription
     , packageCategories = package
       |> Cabal.packageDescription
       |> Cabal.category
@@ -353,12 +363,15 @@ toPackage package = do
       |> Text.splitOn (Text.singleton ',')
       |> map Text.strip
       |> filter (\ x -> x |> Text.null |> not)
-      |> map Tagged.Tagged
+      |> map toCategory
+      |> Set.fromList
+      |> toCategories
     , packageUrl = package
       |> Cabal.packageDescription
       |> Cabal.homepage
       |> Text.pack
-    , packageRepos = repos
+      |> toPackageUrl
+    , packageRepos = repos |> Set.fromList |> toRepos
     , packageLibraries = let
       name = package
         |> Cabal.packageDescription
@@ -366,7 +379,7 @@ toPackage package = do
         |> Cabal.pkgName
         |> Cabal.unPackageName
         |> Text.pack
-        |> LibraryName
+        |> toLibraryName
       library = package
         |> Cabal.packageDescription
         |> Cabal.library
@@ -380,7 +393,7 @@ toPackage package = do
         |> Cabal.condLibrary
         |> Foldable.toList
         |> concatMap fromCondTree
-      in [library, libraries, condLibrary] |> concat |> map (toLibrary name)
+      in [library, libraries, condLibrary] |> concat |> map (toLibrary name) |> Set.fromList |> toLibraries
     , packageExecutables = let
       executables = package
         |> Cabal.packageDescription
@@ -391,7 +404,7 @@ toPackage package = do
         |> concatMap (\ (name, tree) -> tree
           |> fromCondTree
           |> map (Arrow.first (\ x -> x { Cabal.exeName = name })))
-      in [executables, condExecutables] |> concat |> map toExecutable
+      in [executables, condExecutables] |> concat |> map toExecutable |> Set.fromList |> toExecutables
     , packageTests = let
       tests = package
         |> Cabal.packageDescription
@@ -402,7 +415,7 @@ toPackage package = do
         |> concatMap (\ (name, tree) -> tree
           |> fromCondTree
           |> map (Arrow.first (\ x -> x { Cabal.testName = name })))
-      in [tests, condTests] |> concat |> map toTest
+      in [tests, condTests] |> concat |> map toTest |> Set.fromList |> toTests
     , packageBenchmarks = let
       benchmarks = package
         |> Cabal.packageDescription
@@ -413,7 +426,7 @@ toPackage package = do
         |> concatMap (\ (name, tree) -> tree
           |> fromCondTree
           |> map (Arrow.first (\ x -> x { Cabal.benchmarkName = name })))
-      in [benchmarks, condBenchmarks] |> concat |> map toBenchmark
+      in [benchmarks, condBenchmarks] |> concat |> map toBenchmark |> Set.fromList |> toBenchmarks
     }
 
 
@@ -423,14 +436,14 @@ toRepo repo = do
         |> Cabal.repoKind
         |> Cabal.display
         |> Text.pack
-        |> Tagged.Tagged
+        |> toRepoKind
   rawRepoType <- Cabal.repoType repo |> fromJust "could not get repo type"
   let repoType = rawRepoType
         |> Cabal.display
         |> Text.pack
-        |> Tagged.Tagged
+        |> toRepoType
   rawRepoUrl <- Cabal.repoLocation repo |> fromJust "could not get repo URL"
-  let repoUrl = rawRepoUrl |> Text.pack
+  let repoUrl = rawRepoUrl |> Text.pack |> toRepoUrl
   pure Repo { repoKind, repoType, repoUrl }
 
 
@@ -443,31 +456,33 @@ toLibrary name (library, (conditions, constraints)) = Library
     |> Cabal.libName
     |> fmap Cabal.unUnqualComponentName
     |> fmap Text.pack
-    |> fmap LibraryName
+    |> fmap toLibraryName
     |> Maybe.fromMaybe name
-  , libraryCondition = toCondition conditions
+  , libraryCondition = fromCabalConditions conditions
   , libraryModules = library
     |> Cabal.exposedModules
     |> map (\ moduleName -> moduleName
       |> Cabal.components
       |> map Text.pack
-      |> Tagged.Tagged)
+      |> toModuleName)
+    |> Set.fromList
+    |> toModuleNames
   , libraryDependencies = library
     |> Cabal.libBuildInfo
     |> Cabal.targetBuildDepends
     |> map toDependency
     |> (++ map toDependency constraints)
-    |> toDependencies
+    |> fromDependencyList
   }
 
 
-toCondition :: [Cabal.Condition Cabal.ConfVar] -> Condition
-toCondition conditions = conditions
+fromCabalConditions :: [Cabal.Condition Cabal.ConfVar] -> Condition
+fromCabalConditions conditions = conditions
   |> combineConditions
   |> simplifyCondition
   |> renderCondition
   |> Text.pack
-  |> Tagged.Tagged
+  |> toCondition
 
 
 combineConditions
@@ -524,16 +539,17 @@ renderConfVar confVar = case confVar of
   Cabal.OS os -> concat ["os(", Cabal.display os, ")"]
 
 
-toDependencies :: [Dependency] -> Dependencies
-toDependencies dependencies = dependencies
+fromDependencyList :: [Dependency] -> Dependencies
+fromDependencyList dependencies = dependencies
   |> map (\ dependency ->
-    (dependencyPackage dependency, dependencyVersionRange dependency))
+    (dependencyPackage dependency, dependency |> dependencyVersionRange |> fromVersionRange))
   |> Map.fromListWith Cabal.intersectVersionRanges
   |> Map.map (\ versionRange -> versionRange
     |> Cabal.simplifyVersionRange
     |> Cabal.display
     |> Text.pack
-    |> Tagged.Tagged)
+    |> toConstraint)
+  |> toDependencies
 
 
 toDependency :: Cabal.Dependency -> Dependency
@@ -541,8 +557,8 @@ toDependency (Cabal.Dependency packageName versionRange) = Dependency
   { dependencyPackage = packageName
     |> Cabal.unPackageName
     |> Text.pack
-    |> PackageName
-  , dependencyVersionRange = versionRange
+    |> toPackageName
+  , dependencyVersionRange = toVersionRange versionRange
   }
 
 
@@ -554,14 +570,14 @@ toExecutable (executable, (conditions, constraints)) = Executable
     |> Cabal.exeName
     |> Cabal.unUnqualComponentName
     |> Text.pack
-    |> Tagged.Tagged
-  , executableCondition = toCondition conditions
+    |> toExecutableName
+  , executableCondition = fromCabalConditions conditions
   , executableDependencies = executable
     |> Cabal.buildInfo
     |> Cabal.targetBuildDepends
     |> map toDependency
     |> (++ map toDependency constraints)
-    |> toDependencies
+    |> fromDependencyList
   }
 
 
@@ -573,14 +589,14 @@ toTest (test, (conditions, constraints)) = Test
     |> Cabal.testName
     |> Cabal.unUnqualComponentName
     |> Text.pack
-    |> Tagged.Tagged
-  , testCondition = toCondition conditions
+    |> toTestName
+  , testCondition = fromCabalConditions conditions
   , testDependencies = test
     |> Cabal.testBuildInfo
     |> Cabal.targetBuildDepends
     |> map toDependency
     |> (++ map toDependency constraints)
-    |> toDependencies
+    |> fromDependencyList
   }
 
 
@@ -592,14 +608,14 @@ toBenchmark (benchmark, (conditions, constraints)) = Benchmark
     |> Cabal.benchmarkName
     |> Cabal.unUnqualComponentName
     |> Text.pack
-    |> Tagged.Tagged
-  , benchmarkCondition = toCondition conditions
+    |> toBenchmarkName
+  , benchmarkCondition = fromCabalConditions conditions
   , benchmarkDependencies = benchmark
     |> Cabal.benchmarkBuildInfo
     |> Cabal.targetBuildDepends
     |> map toDependency
     |> (++ map toDependency constraints)
-    |> toDependencies
+    |> fromDependencyList
   }
 
 
@@ -770,3 +786,9 @@ fromRight e = case e of
 
 prepend :: a -> [a] -> [a]
 prepend x xs = x : xs
+
+
+intToInt32 :: Catch.MonadThrow m => Int -> m Int.Int32
+intToInt32 x = if x > fromIntegral (maxBound :: Int.Int32)
+  then throw (show x ++ " is too big for Int32")
+  else pure (fromIntegral x)

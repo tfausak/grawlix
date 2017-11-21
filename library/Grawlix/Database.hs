@@ -46,7 +46,7 @@ selectPackageNames = makeQuery
   (Sql.Decode.text
     |> Sql.Decode.value
     |> Sql.Decode.rowsList
-    |> fmap (map PackageName))
+    |> fmap (map toPackageName))
 
 
 selectVersions :: Sql.Query PackageName [Version]
@@ -61,14 +61,14 @@ selectVersions = makeQuery
     where package_names.content = $1
     order by versions.content asc
   |]
-  (Contravariant.contramap unwrapPackageName textParam)
+  (Contravariant.contramap fromPackageName textParam)
   (Sql.Decode.int4
     |> Sql.Decode.arrayValue
     |> Sql.Decode.arrayDimension Monad.replicateM
     |> Sql.Decode.array
     |> Sql.Decode.value
     |> Sql.Decode.rowsList
-    |> fmap (map Version))
+    |> fmap (map toVersion))
 
 
 selectRevisions :: Sql.Query (PackageName, Version) [Revision]
@@ -85,12 +85,12 @@ selectRevisions = makeQuery
     order by packages.revision asc
   |]
   (Contravariant.contrazip2
-    (Contravariant.contramap unwrapPackageName textParam)
-    (Sql.Encode.int4 |> arrayOf |> Contravariant.contramap unwrapVersion))
+    (Contravariant.contramap fromPackageName textParam)
+    (Sql.Encode.int4 |> arrayOf |> Contravariant.contramap fromVersion))
   (Sql.Decode.int4
     |> Sql.Decode.value
     |> Sql.Decode.rowsList
-    |> fmap (map Revision))
+    |> fmap (map toRevision))
 
 
 selectLibraries :: Sql.Query (PackageName, Version, Revision) [LibraryId]
@@ -110,15 +110,15 @@ selectLibraries = makeQuery
     order by libraries.id asc
   |]
   (Contravariant.contrazip3
-    (Contravariant.contramap unwrapPackageName textParam)
-    (Sql.Encode.int4 |> arrayOf |> Contravariant.contramap unwrapVersion)
+    (Contravariant.contramap fromPackageName textParam)
+    (Sql.Encode.int4 |> arrayOf |> Contravariant.contramap fromVersion)
     (Sql.Encode.int4
       |> Sql.Encode.value
-      |> Contravariant.contramap unwrapRevision))
+      |> Contravariant.contramap fromRevision))
   (Sql.Decode.int4
     |> Sql.Decode.value
     |> Sql.Decode.rowsList
-    |> fmap (map LibraryId))
+    |> fmap (map toLibraryId))
 
 
 selectModules :: Sql.Query (PackageName, Version, Revision, LibraryId) [ModuleName]
@@ -143,21 +143,21 @@ selectModules = makeQuery
     order by module_names.content asc
   |]
   (Contravariant.contrazip4
-    (Contravariant.contramap unwrapPackageName textParam)
-    (Sql.Encode.int4 |> arrayOf |> Contravariant.contramap unwrapVersion)
+    (Contravariant.contramap fromPackageName textParam)
+    (Sql.Encode.int4 |> arrayOf |> Contravariant.contramap fromVersion)
     (Sql.Encode.int4
       |> Sql.Encode.value
-      |> Contravariant.contramap unwrapRevision)
+      |> Contravariant.contramap fromRevision)
     (Sql.Encode.int4
       |> Sql.Encode.value
-      |> Contravariant.contramap unwrapLibraryId))
+      |> Contravariant.contramap fromLibraryId))
     (Sql.Decode.text
       |> Sql.Decode.arrayValue
       |> Sql.Decode.arrayDimension Monad.replicateM
       |> Sql.Decode.array
       |> Sql.Decode.value
       |> Sql.Decode.rowsList
-      |> fmap (map Tagged.Tagged))
+      |> fmap (map toModuleName))
 
 
 selectDependencyId :: Sql.Query (ConstraintId, PackageNameId) DependencyId
@@ -168,8 +168,10 @@ selectDependencyId = makeQuery
     where constraint_id = $1
     and package_name_id = $2
   |]
-  (Contravariant.contrazip2 idParam idParam)
-  idResult
+  (Contravariant.contrazip2
+    (Sql.Encode.int4 |> Sql.Encode.value |> Contravariant.contramap fromConstraintId)
+    (Sql.Encode.int4 |> Sql.Encode.value |> Contravariant.contramap fromPackageNameId))
+  (Sql.Decode.int4 |> Sql.Decode.value |> Sql.Decode.singleRow |> fmap toDependencyId)
 
 
 insertDependencyLibrary :: Sql.Query (DependencyId, LibraryId) ()
@@ -180,10 +182,8 @@ insertDependencyLibrary = makeQuery
     on conflict do nothing
   |]
   (Contravariant.contrazip2
-    idParam
-    (Sql.Encode.int4
-      |> Sql.Encode.value
-      |> Contravariant.contramap unwrapLibraryId))
+    (Sql.Encode.int4 |> Sql.Encode.value |> Contravariant.contramap fromDependencyId)
+    (Sql.Encode.int4 |> Sql.Encode.value |> Contravariant.contramap fromLibraryId))
   Sql.Decode.unit
 
 
@@ -194,7 +194,7 @@ insertBenchmarkName = makeQuery
     values ( $1 )
     on conflict do nothing
   |]
-  taggedTextParam
+  (Sql.Encode.text |> Sql.Encode.value |> Contravariant.contramap fromBenchmarkName)
   Sql.Decode.unit
 
 
@@ -205,8 +205,8 @@ selectBenchmarkNameId = makeQuery
     from benchmark_names
     where content = $1
   |]
-  taggedTextParam
-  idResult
+  (Sql.Encode.text |> Sql.Encode.value |> Contravariant.contramap fromBenchmarkName)
+  (Sql.Decode.int4 |> Sql.Decode.value |> Sql.Decode.singleRow |> fmap toBenchmarkNameId)
 
 
 insertBenchmark :: Sql.Query (PackageId, BenchmarkNameId, ConditionId) ()
@@ -216,7 +216,10 @@ insertBenchmark = makeQuery
     values ( $1, $2, $3 )
     on conflict do nothing
   |]
-  (Contravariant.contrazip3 idParam idParam idParam)
+  (Contravariant.contrazip3
+    (Sql.Encode.int4 |> Sql.Encode.value |> Contravariant.contramap fromPackageId)
+    (Sql.Encode.int4 |> Sql.Encode.value |> Contravariant.contramap fromBenchmarkNameId)
+    (Sql.Encode.int4 |> Sql.Encode.value |> Contravariant.contramap fromConditionId))
   Sql.Decode.unit
 
 
@@ -230,8 +233,11 @@ selectBenchmarkId = makeQuery
     and benchmark_name_id = $2
     and condition_id = $3
   |]
-  (Contravariant.contrazip3 idParam idParam idParam)
-  idResult
+  (Contravariant.contrazip3
+    (Sql.Encode.int4 |> Sql.Encode.value |> Contravariant.contramap fromPackageId)
+    (Sql.Encode.int4 |> Sql.Encode.value |> Contravariant.contramap fromBenchmarkNameId)
+    (Sql.Encode.int4 |> Sql.Encode.value |> Contravariant.contramap fromConditionId))
+  (Sql.Decode.int4 |> Sql.Decode.value |> Sql.Decode.singleRow |> fmap toBenchmarkId)
 
 
 insertDependencyBenchmark :: Sql.Query (DependencyId, BenchmarkId) ()
@@ -241,7 +247,9 @@ insertDependencyBenchmark = makeQuery
     values ( $1, $2 )
     on conflict do nothing
   |]
-  (Contravariant.contrazip2 idParam idParam)
+  (Contravariant.contrazip2
+    (Sql.Encode.int4 |> Sql.Encode.value |> Contravariant.contramap fromDependencyId)
+    (Sql.Encode.int4 |> Sql.Encode.value |> Contravariant.contramap fromBenchmarkId))
   Sql.Decode.unit
 
 
@@ -252,7 +260,7 @@ insertTestName = makeQuery
     values ( $1 )
     on conflict do nothing
   |]
-  taggedTextParam
+  (Sql.Encode.text |> Sql.Encode.value |> Contravariant.contramap fromTestName)
   Sql.Decode.unit
 
 
@@ -263,8 +271,8 @@ selectTestNameId = makeQuery
     from test_names
     where content = $1
   |]
-  taggedTextParam
-  idResult
+  (Sql.Encode.text |> Sql.Encode.value |> Contravariant.contramap fromTestName)
+  (Sql.Decode.int4 |> Sql.Decode.value |> Sql.Decode.singleRow |> fmap toTestNameId)
 
 
 insertTest :: Sql.Query (PackageId, TestNameId, ConditionId) ()
@@ -274,7 +282,10 @@ insertTest = makeQuery
     values ( $1, $2, $3 )
     on conflict do nothing
   |]
-  (Contravariant.contrazip3 idParam idParam idParam)
+  (Contravariant.contrazip3
+    (Sql.Encode.int4 |> Sql.Encode.value |> Contravariant.contramap fromPackageId)
+    (Sql.Encode.int4 |> Sql.Encode.value |> Contravariant.contramap fromTestNameId)
+    (Sql.Encode.int4 |> Sql.Encode.value |> Contravariant.contramap fromConditionId))
   Sql.Decode.unit
 
 
@@ -287,8 +298,11 @@ selectTestId = makeQuery
     and test_name_id = $2
     and condition_id = $3
   |]
-  (Contravariant.contrazip3 idParam idParam idParam)
-  idResult
+  (Contravariant.contrazip3
+    (Sql.Encode.int4 |> Sql.Encode.value |> Contravariant.contramap fromPackageId)
+    (Sql.Encode.int4 |> Sql.Encode.value |> Contravariant.contramap fromTestNameId)
+    (Sql.Encode.int4 |> Sql.Encode.value |> Contravariant.contramap fromConditionId))
+  (Sql.Decode.int4 |> Sql.Decode.value |> Sql.Decode.singleRow |> fmap toTestId)
 
 
 insertDependencyTest :: Sql.Query (DependencyId, TestId) ()
@@ -298,7 +312,9 @@ insertDependencyTest = makeQuery
     values ( $1, $2 )
     on conflict do nothing
   |]
-  (Contravariant.contrazip2 idParam idParam)
+  (Contravariant.contrazip2
+    (Sql.Encode.int4 |> Sql.Encode.value |> Contravariant.contramap fromDependencyId)
+    (Sql.Encode.int4 |> Sql.Encode.value |> Contravariant.contramap fromTestId))
   Sql.Decode.unit
 
 
@@ -309,7 +325,7 @@ insertExecutableName = makeQuery
     values ( $1 )
     on conflict do nothing
   |]
-  taggedTextParam
+  (Sql.Encode.text |> Sql.Encode.value |> Contravariant.contramap fromExecutableName)
   Sql.Decode.unit
 
 
@@ -320,8 +336,8 @@ selectExecutableNameId = makeQuery
     from executable_names
     where content = $1
   |]
-  taggedTextParam
-  idResult
+  (Sql.Encode.text |> Sql.Encode.value |> Contravariant.contramap fromExecutableName)
+  (Sql.Decode.int4 |> Sql.Decode.value |> Sql.Decode.singleRow |> fmap toExecutableNameId)
 
 
 insertExecutable :: Sql.Query (PackageId, ExecutableNameId, ConditionId) ()
@@ -331,7 +347,10 @@ insertExecutable = makeQuery
     values ( $1, $2, $3 )
     on conflict do nothing
   |]
-  (Contravariant.contrazip3 idParam idParam idParam)
+  (Contravariant.contrazip3
+    (Sql.Encode.int4 |> Sql.Encode.value |> Contravariant.contramap fromPackageId)
+    (Sql.Encode.int4 |> Sql.Encode.value |> Contravariant.contramap fromExecutableNameId)
+    (Sql.Encode.int4 |> Sql.Encode.value |> Contravariant.contramap fromConditionId))
   Sql.Decode.unit
 
 
@@ -345,8 +364,11 @@ selectExecutableId = makeQuery
     and executable_name_id = $2
     and condition_id = $3
   |]
-  (Contravariant.contrazip3 idParam idParam idParam)
-  idResult
+  (Contravariant.contrazip3
+    (Sql.Encode.int4 |> Sql.Encode.value |> Contravariant.contramap fromPackageId)
+    (Sql.Encode.int4 |> Sql.Encode.value |> Contravariant.contramap fromExecutableNameId)
+    (Sql.Encode.int4 |> Sql.Encode.value |> Contravariant.contramap fromConditionId))
+  (Sql.Decode.int4 |> Sql.Decode.value |> Sql.Decode.singleRow |> fmap toExecutableId)
 
 
 insertDependencyExecutable :: Sql.Query (DependencyId, ExecutableId) ()
@@ -356,7 +378,9 @@ insertDependencyExecutable = makeQuery
     values ( $1, $2 )
     on conflict do nothing
   |]
-  (Contravariant.contrazip2 idParam idParam)
+  (Contravariant.contrazip2
+    (Sql.Encode.int4 |> Sql.Encode.value |> Contravariant.contramap fromDependencyId)
+    (Sql.Encode.int4 |> Sql.Encode.value |> Contravariant.contramap fromExecutableId))
   Sql.Decode.unit
 
 
@@ -367,7 +391,7 @@ insertLibraryName = makeQuery
     values ( $1 )
     on conflict do nothing
   |]
-  (Contravariant.contramap unwrapLibraryName textParam)
+  (Contravariant.contramap fromLibraryName textParam)
   Sql.Decode.unit
 
 
@@ -378,8 +402,8 @@ selectLibraryNameId = makeQuery
     from library_names
     where content = $1
   |]
-  (Contravariant.contramap unwrapLibraryName textParam)
-  idResult
+  (Contravariant.contramap fromLibraryName textParam)
+  (Sql.Decode.int4 |> Sql.Decode.value |> Sql.Decode.singleRow |> fmap toLibraryNameId)
 
 
 insertCondition :: Sql.Query Condition ()
@@ -389,7 +413,7 @@ insertCondition = makeQuery
     values ( $1 )
     on conflict do nothing
   |]
-  taggedTextParam
+  (Sql.Encode.text |> Sql.Encode.value |> Contravariant.contramap fromCondition)
   Sql.Decode.unit
 
 
@@ -400,8 +424,8 @@ selectConditionId = makeQuery
     from conditions
     where content = $1
   |]
-  taggedTextParam
-  idResult
+  (Sql.Encode.text |> Sql.Encode.value |> Contravariant.contramap fromCondition)
+  (Sql.Decode.int4 |> Sql.Decode.value |> Sql.Decode.singleRow |> fmap toConditionId)
 
 
 insertLibrary :: Sql.Query (PackageId, LibraryNameId, ConditionId) ()
@@ -411,7 +435,10 @@ insertLibrary = makeQuery
     values ( $1, $2, $3 )
     on conflict do nothing
   |]
-  (Contravariant.contrazip3 idParam idParam idParam)
+  (Contravariant.contrazip3
+    (Sql.Encode.int4 |> Sql.Encode.value |> Contravariant.contramap fromPackageId)
+    (Sql.Encode.int4 |> Sql.Encode.value |> Contravariant.contramap fromLibraryNameId)
+    (Sql.Encode.int4 |> Sql.Encode.value |> Contravariant.contramap fromConditionId))
   Sql.Decode.unit
 
 
@@ -424,11 +451,14 @@ selectLibraryId = makeQuery
     and library_name_id = $2
     and condition_id = $3
   |]
-  (Contravariant.contrazip3 idParam idParam idParam)
+  (Contravariant.contrazip3
+    (Sql.Encode.int4 |> Sql.Encode.value |> Contravariant.contramap fromPackageId)
+    (Sql.Encode.int4 |> Sql.Encode.value |> Contravariant.contramap fromLibraryNameId)
+    (Sql.Encode.int4 |> Sql.Encode.value |> Contravariant.contramap fromConditionId))
   (Sql.Decode.int4
     |> Sql.Decode.value
     |> Sql.Decode.singleRow
-    |> fmap LibraryId)
+    |> fmap toLibraryId)
 
 
 selectModuleNameId :: Sql.Query ModuleName ModuleNameId
@@ -438,8 +468,8 @@ selectModuleNameId = makeQuery
     from module_names
     where content = $1
   |]
-  (Sql.Encode.text |> arrayOf |> contraUntag)
-  idResult
+  (Sql.Encode.text |> arrayOf |> Contravariant.contramap fromModuleName)
+  (Sql.Decode.int4 |> Sql.Decode.value |> Sql.Decode.singleRow |> fmap toModuleNameId)
 
 
 insertLibraryModuleName :: Sql.Query (LibraryId, ModuleNameId) ()
@@ -450,10 +480,8 @@ insertLibraryModuleName = makeQuery
     on conflict do nothing
   |]
   (Contravariant.contrazip2
-    (Sql.Encode.int4
-      |> Sql.Encode.value
-      |> Contravariant.contramap unwrapLibraryId)
-    idParam)
+    (Sql.Encode.int4 |> Sql.Encode.value |> Contravariant.contramap fromLibraryId)
+    (Sql.Encode.int4 |> Sql.Encode.value |> Contravariant.contramap fromModuleNameId))
   Sql.Decode.unit
 
 
@@ -464,8 +492,8 @@ selectRepoTypeId = makeQuery
     from repo_types
     where content = $1
   |]
-  taggedTextParam
-  idResult
+  (Sql.Encode.text |> Sql.Encode.value |> Contravariant.contramap fromRepoType)
+  (Sql.Decode.int4 |> Sql.Decode.value |> Sql.Decode.singleRow |> fmap toRepoTypeId)
 
 
 insertRepoType :: Sql.Query RepoType ()
@@ -475,7 +503,7 @@ insertRepoType = makeQuery
     values ( $1 )
     on conflict do nothing
   |]
-  taggedTextParam
+  (Sql.Encode.text |> Sql.Encode.value |> Contravariant.contramap fromRepoType)
   Sql.Decode.unit
 
 
@@ -486,8 +514,8 @@ selectRepoKindId = makeQuery
     from repo_kinds
     where content = $1
   |]
-  taggedTextParam
-  idResult
+  (Sql.Encode.text |> Sql.Encode.value |> Contravariant.contramap fromRepoKind)
+  (Sql.Decode.int4 |> Sql.Decode.value |> Sql.Decode.singleRow |> fmap toRepoKindId)
 
 
 insertRepoKind :: Sql.Query RepoKind ()
@@ -497,7 +525,7 @@ insertRepoKind = makeQuery
     values ( $1 )
     on conflict do nothing
   |]
-  taggedTextParam
+  (Sql.Encode.text |> Sql.Encode.value |> Contravariant.contramap fromRepoKind)
   Sql.Decode.unit
 
 
@@ -508,11 +536,13 @@ insertPackageRepo = makeQuery
     values ( $1, $2 )
     on conflict do nothing
   |]
-  (Contravariant.contrazip2 idParam idParam)
+  (Contravariant.contrazip2
+    (Sql.Encode.int4 |> Sql.Encode.value |> Contravariant.contramap fromPackageId)
+    (Sql.Encode.int4 |> Sql.Encode.value |> Contravariant.contramap fromRepoId))
   Sql.Decode.unit
 
 
-selectRepoId :: Sql.Query (RepoKindId, RepoTypeId, Text.Text) RepoId
+selectRepoId :: Sql.Query (RepoKindId, RepoTypeId, RepoUrl) RepoId
 selectRepoId = makeQuery
   [Quotes.string|
     select id
@@ -521,18 +551,24 @@ selectRepoId = makeQuery
     and repo_type_id = $2
     and url = $3
   |]
-  (Contravariant.contrazip3 idParam idParam textParam)
-  idResult
+  (Contravariant.contrazip3
+    (Sql.Encode.int4 |> Sql.Encode.value |> Contravariant.contramap fromRepoKindId)
+    (Sql.Encode.int4 |> Sql.Encode.value |> Contravariant.contramap fromRepoTypeId)
+    (Sql.Encode.text |> Sql.Encode.value |> Contravariant.contramap fromRepoUrl))
+  (Sql.Decode.int4 |> Sql.Decode.value |> Sql.Decode.singleRow |> fmap toRepoId)
 
 
-insertRepo :: Sql.Query (RepoKindId, RepoTypeId, Text.Text) ()
+insertRepo :: Sql.Query (RepoKindId, RepoTypeId, RepoUrl) ()
 insertRepo = makeQuery
   [Quotes.string|
     insert into repos ( repo_kind_id, repo_type_id, url )
     values ( $1, $2, $3 )
     on conflict do nothing
   |]
-  (Contravariant.contrazip3 idParam idParam textParam)
+  (Contravariant.contrazip3
+    (Sql.Encode.int4 |> Sql.Encode.value |> Contravariant.contramap fromRepoKindId)
+    (Sql.Encode.int4 |> Sql.Encode.value |> Contravariant.contramap fromRepoTypeId)
+    (Sql.Encode.text |> Sql.Encode.value |> Contravariant.contramap fromRepoUrl))
   Sql.Decode.unit
 
 
@@ -543,7 +579,9 @@ insertDependency = makeQuery
     values ( $1, $2 )
     on conflict do nothing
   |]
-  (Contravariant.contrazip2 idParam idParam)
+  (Contravariant.contrazip2
+    (Sql.Encode.int4 |> Sql.Encode.value |> Contravariant.contramap fromConstraintId)
+    (Sql.Encode.int4 |> Sql.Encode.value |> Contravariant.contramap fromPackageNameId))
   Sql.Decode.unit
 
 
@@ -554,8 +592,8 @@ selectConstraintId = makeQuery
     from constraints
     where content = $1
   |]
-  taggedTextParam
-  idResult
+  (Sql.Encode.text |> Sql.Encode.value |> Contravariant.contramap fromConstraint)
+  (Sql.Decode.int4 |> Sql.Decode.value |> Sql.Decode.singleRow |> fmap toConstraintId)
 
 
 selectPackageNameId :: Sql.Query PackageName PackageNameId
@@ -565,8 +603,8 @@ selectPackageNameId = makeQuery
     from package_names
     where content = $1
   |]
-  (Contravariant.contramap unwrapPackageName textParam)
-  idResult
+  (Contravariant.contramap fromPackageName textParam)
+  (Sql.Decode.int4 |> Sql.Decode.value |> Sql.Decode.singleRow |> fmap toPackageNameId)
 
 
 insertConstraint :: Sql.Query Constraint ()
@@ -576,7 +614,7 @@ insertConstraint = makeQuery
     values ( $1 )
     on conflict do nothing
   |]
-  taggedTextParam
+  (Sql.Encode.text |> Sql.Encode.value |> Contravariant.contramap fromConstraint)
   Sql.Decode.unit
 
 
@@ -587,7 +625,7 @@ insertModuleName = makeQuery
     values ( $1 )
     on conflict do nothing
   |]
-  (Sql.Encode.text |> arrayOf |> contraUntag)
+  (Sql.Encode.text |> arrayOf |> Contravariant.contramap fromModuleName)
   Sql.Decode.unit
 
 
@@ -598,7 +636,7 @@ insertPackageName = makeQuery
     values ( $1 )
     on conflict do nothing
   |]
-  (Contravariant.contramap unwrapPackageName textParam)
+  (Contravariant.contramap fromPackageName textParam)
   Sql.Decode.unit
 
 
@@ -609,7 +647,7 @@ insertVersion = makeQuery
     values ( $1 )
     on conflict do nothing
   |]
-  (Sql.Encode.int4 |> arrayOf |> Contravariant.contramap unwrapVersion)
+  (Sql.Encode.int4 |> arrayOf |> Contravariant.contramap fromVersion)
   Sql.Decode.unit
 
 
@@ -620,7 +658,7 @@ insertLicense = makeQuery
     values ( $1 )
     on conflict do nothing
   |]
-  taggedTextParam
+  (Sql.Encode.text |> Sql.Encode.value |> Contravariant.contramap fromLicense)
   Sql.Decode.unit
 
 
@@ -630,9 +668,9 @@ insertPackage
     , Version
     , Revision
     , License
-    , Text.Text
-    , Text.Text
-    , Text.Text
+    , Synopsis
+    , Description
+    , PackageUrl
     )
     ()
 insertPackage = makeQuery
@@ -656,13 +694,13 @@ insertPackage = makeQuery
     ) on conflict do nothing
   |]
   (Contravariant.contrazip7
-    (Contravariant.contramap unwrapPackageName textParam)
-    (Sql.Encode.int4 |> arrayOf |> Contravariant.contramap unwrapVersion)
-    (Sql.Encode.int4 |> Sql.Encode.value |> Contravariant.contramap unwrapRevision)
-    taggedTextParam
-    textParam
-    textParam
-    textParam)
+    (Contravariant.contramap fromPackageName textParam)
+    (Sql.Encode.int4 |> arrayOf |> Contravariant.contramap fromVersion)
+    (Sql.Encode.int4 |> Sql.Encode.value |> Contravariant.contramap fromRevision)
+    (Sql.Encode.text |> Sql.Encode.value |> Contravariant.contramap fromLicense)
+    (Sql.Encode.text |> Sql.Encode.value |> Contravariant.contramap fromSynopsis)
+    (Sql.Encode.text |> Sql.Encode.value |> Contravariant.contramap fromDescription)
+    (Sql.Encode.text |> Sql.Encode.value |> Contravariant.contramap fromPackageUrl))
   Sql.Decode.unit
 
 
@@ -680,10 +718,10 @@ selectPackageId = makeQuery
     and packages.revision = $3
   |]
   (Contravariant.contrazip3
-    (Contravariant.contramap unwrapPackageName textParam)
-    (Sql.Encode.int4 |> arrayOf |> Contravariant.contramap unwrapVersion)
-    (Sql.Encode.int4 |> Sql.Encode.value |> Contravariant.contramap unwrapRevision))
-  idResult
+    (Contravariant.contramap fromPackageName textParam)
+    (Sql.Encode.int4 |> arrayOf |> Contravariant.contramap fromVersion)
+    (Sql.Encode.int4 |> Sql.Encode.value |> Contravariant.contramap fromRevision))
+  (Sql.Decode.int4 |> Sql.Decode.value |> Sql.Decode.singleRow |> fmap toPackageId)
 
 
 insertCategory :: Sql.Query Category ()
@@ -693,7 +731,7 @@ insertCategory = makeQuery
     values ( $1 )
     on conflict do nothing
   |]
-  taggedTextParam
+  (Sql.Encode.text |> Sql.Encode.value |> Contravariant.contramap fromCategory)
   Sql.Decode.unit
 
 
@@ -704,8 +742,8 @@ selectCategoryId = makeQuery
     from categories
     where content = $1
   |]
-  taggedTextParam
-  idResult
+  (Sql.Encode.text |> Sql.Encode.value |> Contravariant.contramap fromCategory)
+  (Sql.Decode.int4 |> Sql.Decode.value |> Sql.Decode.singleRow |> fmap toCategoryId)
 
 
 insertCategoryPackage :: Sql.Query (CategoryId, PackageId) ()
@@ -715,7 +753,9 @@ insertCategoryPackage = makeQuery
     values ( $1, $2 )
     on conflict do nothing
   |]
-  (Contravariant.contrazip2 idParam idParam)
+  (Contravariant.contrazip2
+    (Sql.Encode.int4 |> Sql.Encode.value |> Contravariant.contramap fromCategoryId)
+    (Sql.Encode.int4 |> Sql.Encode.value |> Contravariant.contramap fromPackageId))
   Sql.Decode.unit
 
 
