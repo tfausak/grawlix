@@ -1,13 +1,15 @@
-module Grawlix.Quotes where
+module Grawlix.Quotes
+  ( string
+  ) where
 
+import qualified Language.Haskell.TH as TH
 import qualified Language.Haskell.TH.Quote as TH
-import qualified Language.Haskell.TH.Syntax as TH
 
 
 string :: TH.QuasiQuoter
 string = TH.QuasiQuoter
-  { TH.quoteDec = \ _ -> fail "cannot use [string|...|] quasi-quotation as a declaration"
-  , TH.quoteExp = \ x -> pure (TH.LitE (TH.StringL x))
-  , TH.quotePat = \ x -> pure (TH.LitP (TH.StringL x))
-  , TH.quoteType = \ x -> pure (TH.LitT (TH.StrTyLit x))
+  { TH.quoteDec = const $ fail "cannot use as a declaration"
+  , TH.quoteExp = pure . TH.LitE . TH.StringL
+  , TH.quotePat = pure . TH.LitP . TH.StringL
+  , TH.quoteType = pure . TH.LitT . TH.StrTyLit
   }
