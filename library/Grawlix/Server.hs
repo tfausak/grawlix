@@ -1,4 +1,3 @@
-{-# LANGUAGE DataKinds #-}
 {-# LANGUAGE TypeOperators #-}
 
 module Grawlix.Server
@@ -24,7 +23,10 @@ import qualified Servant
 main :: IO ()
 main = do
   connection <- getConnection
-  Warp.runSettings settings . applyMiddleware $ makeApplication connection
+  runServer connection
+
+runServer :: Sql.Connection -> IO ()
+runServer = Warp.runSettings settings . applyMiddleware . makeApplication
 
 settings :: Warp.Settings
 settings =

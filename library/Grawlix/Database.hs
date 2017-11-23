@@ -4,7 +4,6 @@ module Grawlix.Database
   , runQuery
   ) where
 
-import Flow ((|>))
 import Grawlix.Query.Common
 
 import qualified Data.Maybe as Maybe
@@ -17,35 +16,28 @@ import qualified Hasql.Transaction as Sql.Transaction
 import qualified Hasql.Transaction.Sessions as Sql
 import qualified System.Environment as Environment
 
-
-runQuery :: Sql.Connection -> Query a b -> a -> IO b
-runQuery connection query params = do
-  let session = Sql.query params query
-  result <- Sql.run session connection
+getConnection :: IO Sql.Connection
+getConnection = do
+  db <- Environment.lookupEnv "DATABASE"
+  result <- Sql.acquire . Text.encodeUtf8 . Text.pack $ Maybe.fromMaybe "" db
   case result of
-    Left problem -> fail (show problem)
-    Right value -> pure value
-
+    Left problem -> fail $ show problem
+    Right connection -> pure connection
 
 runMigration :: Sql.Connection -> Sql.MigrationCommand -> IO ()
 runMigration connection migration = do
-  let session = migration
-        |> Sql.runMigration
-        |> Sql.transaction Sql.Transaction.Serializable Sql.Transaction.Write
-  result <- Sql.run session connection
+  result <- Sql.run (transaction $ Sql.runMigration migration) connection
   case result of
     Right Sql.MigrationSuccess -> pure ()
-    _ -> result |> show |> fail
+    _ -> fail (show result)
 
-
-getConnection :: IO Sql.Connection
-getConnection = do
-  maybeSettings <- Environment.lookupEnv "DATABASE"
-  result <- maybeSettings
-    |> Maybe.fromMaybe ""
-    |> Text.pack
-    |> Text.encodeUtf8
-    |> Sql.acquire
+runQuery :: Sql.Connection -> Query a b -> a -> IO b
+runQuery connection query params = do
+  result <- Sql.run (Sql.query params query) connection
   case result of
-    Left problem -> problem |> show |> fail
-    Right connection -> pure connection
+    Left problem -> fail $ show problem
+    Right value -> pure value
+
+transaction :: Sql.Transaction.Transaction a -> Sql.Session a
+transaction =
+  Sql.transaction Sql.Transaction.Serializable Sql.Transaction.Write
