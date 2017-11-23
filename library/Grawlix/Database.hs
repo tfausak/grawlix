@@ -1,791 +1,130 @@
-{-# LANGUAGE PolyKinds #-}
-{-# LANGUAGE QuasiQuotes #-}
-
-module Grawlix.Database where
+module Grawlix.Database
+  ( module Grawlix.Database
+  , module Grawlix.Query.InsertBenchmark
+  , module Grawlix.Query.InsertBenchmarkName
+  , module Grawlix.Query.InsertCategory
+  , module Grawlix.Query.InsertCategoryPackage
+  , module Grawlix.Query.InsertCondition
+  , module Grawlix.Query.InsertConstraint
+  , module Grawlix.Query.InsertDependency
+  , module Grawlix.Query.InsertDependencyBenchmark
+  , module Grawlix.Query.InsertDependencyExecutable
+  , module Grawlix.Query.InsertDependencyLibrary
+  , module Grawlix.Query.InsertDependencyTest
+  , module Grawlix.Query.InsertExecutable
+  , module Grawlix.Query.InsertExecutableName
+  , module Grawlix.Query.InsertLibrary
+  , module Grawlix.Query.InsertLibraryModuleName
+  , module Grawlix.Query.InsertLibraryName
+  , module Grawlix.Query.InsertLicense
+  , module Grawlix.Query.InsertModuleName
+  , module Grawlix.Query.InsertPackage
+  , module Grawlix.Query.InsertPackageName
+  , module Grawlix.Query.InsertPackageRepo
+  , module Grawlix.Query.InsertRepo
+  , module Grawlix.Query.InsertRepoKind
+  , module Grawlix.Query.InsertRepoType
+  , module Grawlix.Query.InsertTest
+  , module Grawlix.Query.InsertTestName
+  , module Grawlix.Query.InsertVersion
+  , module Grawlix.Query.SelectBenchmarkId
+  , module Grawlix.Query.SelectBenchmarkNameId
+  , module Grawlix.Query.SelectCategoryId
+  , module Grawlix.Query.SelectConditionId
+  , module Grawlix.Query.SelectConstraintId
+  , module Grawlix.Query.SelectDependencyId
+  , module Grawlix.Query.SelectExecutableId
+  , module Grawlix.Query.SelectExecutableNameId
+  , module Grawlix.Query.SelectLibraries
+  , module Grawlix.Query.SelectLibraryId
+  , module Grawlix.Query.SelectLibraryNameId
+  , module Grawlix.Query.SelectModuleNameId
+  , module Grawlix.Query.SelectModules
+  , module Grawlix.Query.SelectPackageId
+  , module Grawlix.Query.SelectPackageNameId
+  , module Grawlix.Query.SelectPackageNames
+  , module Grawlix.Query.SelectRepoId
+  , module Grawlix.Query.SelectRepoKindId
+  , module Grawlix.Query.SelectRepoTypeId
+  , module Grawlix.Query.SelectRevisions
+  , module Grawlix.Query.SelectTestId
+  , module Grawlix.Query.SelectTestNameId
+  , module Grawlix.Query.SelectTrue
+  , module Grawlix.Query.SelectVersions
+  ) where
 
 import Flow ((|>))
-import Grawlix.Types
+import Grawlix.Query.Common
+import Grawlix.Query.InsertBenchmark
+import Grawlix.Query.InsertBenchmarkName
+import Grawlix.Query.InsertCategory
+import Grawlix.Query.InsertCategoryPackage
+import Grawlix.Query.InsertCondition
+import Grawlix.Query.InsertConstraint
+import Grawlix.Query.InsertDependency
+import Grawlix.Query.InsertDependencyBenchmark
+import Grawlix.Query.InsertDependencyExecutable
+import Grawlix.Query.InsertDependencyLibrary
+import Grawlix.Query.InsertDependencyTest
+import Grawlix.Query.InsertExecutable
+import Grawlix.Query.InsertExecutableName
+import Grawlix.Query.InsertLibrary
+import Grawlix.Query.InsertLibraryModuleName
+import Grawlix.Query.InsertLibraryName
+import Grawlix.Query.InsertLicense
+import Grawlix.Query.InsertModuleName
+import Grawlix.Query.InsertPackage
+import Grawlix.Query.InsertPackageName
+import Grawlix.Query.InsertPackageRepo
+import Grawlix.Query.InsertRepo
+import Grawlix.Query.InsertRepoKind
+import Grawlix.Query.InsertRepoType
+import Grawlix.Query.InsertTest
+import Grawlix.Query.InsertTestName
+import Grawlix.Query.InsertVersion
+import Grawlix.Query.SelectBenchmarkId
+import Grawlix.Query.SelectBenchmarkNameId
+import Grawlix.Query.SelectCategoryId
+import Grawlix.Query.SelectConditionId
+import Grawlix.Query.SelectConstraintId
+import Grawlix.Query.SelectDependencyId
+import Grawlix.Query.SelectExecutableId
+import Grawlix.Query.SelectExecutableNameId
+import Grawlix.Query.SelectLibraries
+import Grawlix.Query.SelectLibraryId
+import Grawlix.Query.SelectLibraryNameId
+import Grawlix.Query.SelectModuleNameId
+import Grawlix.Query.SelectModules
+import Grawlix.Query.SelectPackageId
+import Grawlix.Query.SelectPackageNameId
+import Grawlix.Query.SelectPackageNames
+import Grawlix.Query.SelectRepoId
+import Grawlix.Query.SelectRepoKindId
+import Grawlix.Query.SelectRepoTypeId
+import Grawlix.Query.SelectRevisions
+import Grawlix.Query.SelectTestId
+import Grawlix.Query.SelectTestNameId
+import Grawlix.Query.SelectTrue
+import Grawlix.Query.SelectVersions
 
-import qualified Contravariant.Extras as Contravariant
-import qualified Control.Monad as Monad
-import qualified Data.Functor.Contravariant as Contravariant
-import qualified Data.Int as Int
 import qualified Data.Maybe as Maybe
-import qualified Data.Tagged as Tagged
 import qualified Data.Text as Text
 import qualified Data.Text.Encoding as Text
-import qualified Grawlix.Quotes as Quotes
 import qualified Hasql.Connection as Sql
-import qualified Hasql.Decoders as Sql.Decode
-import qualified Hasql.Encoders as Sql.Encode
 import qualified Hasql.Migration as Sql
-import qualified Hasql.Query as Sql
 import qualified Hasql.Session as Sql
 import qualified Hasql.Transaction as Sql.Transaction
 import qualified Hasql.Transaction.Sessions as Sql
 import qualified System.Environment as Environment
 
 
-pingQuery :: Sql.Query () Bool
-pingQuery = makeQuery
-  [Quotes.string|
-    select true
-  |]
-  Sql.Encode.unit
-  (Sql.Decode.bool |> Sql.Decode.value |> Sql.Decode.singleRow)
-
-
-selectPackageNames :: Sql.Query () [PackageName]
-selectPackageNames = makeQuery
-  [Quotes.string|
-    select distinct content
-    from package_names
-    order by content asc
-  |]
-  Sql.Encode.unit
-  (Sql.Decode.text
-    |> Sql.Decode.value
-    |> Sql.Decode.rowsList
-    |> fmap (map toPackageName))
-
-
-selectVersions :: Sql.Query PackageName [Version]
-selectVersions = makeQuery
-  [Quotes.string|
-    select distinct versions.content
-    from versions
-    inner join packages
-    on packages.version_id = versions.id
-    inner join package_names
-    on package_names.id = packages.package_name_id
-    where package_names.content = $1
-    order by versions.content asc
-  |]
-  (Contravariant.contramap fromPackageName textParam)
-  (Sql.Decode.int4
-    |> Sql.Decode.arrayValue
-    |> Sql.Decode.arrayDimension Monad.replicateM
-    |> Sql.Decode.array
-    |> Sql.Decode.value
-    |> Sql.Decode.rowsList
-    |> fmap (map toVersion))
-
-
-selectRevisions :: Sql.Query (PackageName, Version) [Revision]
-selectRevisions = makeQuery
-  [Quotes.string|
-    select distinct packages.revision
-    from packages
-    inner join package_names
-    on package_names.id = packages.package_name_id
-    inner join versions
-    on versions.id = packages.version_id
-    where package_names.content = $1
-    and versions.content = $2
-    order by packages.revision asc
-  |]
-  (Contravariant.contrazip2
-    (Contravariant.contramap fromPackageName textParam)
-    (Sql.Encode.int4 |> arrayOf |> Contravariant.contramap fromVersion))
-  (Sql.Decode.int4
-    |> Sql.Decode.value
-    |> Sql.Decode.rowsList
-    |> fmap (map toRevision))
-
-
-selectLibraries :: Sql.Query (PackageName, Version, Revision) [LibraryId]
-selectLibraries = makeQuery
-  [Quotes.string|
-    select distinct libraries.id
-    from packages
-    inner join package_names
-    on package_names.id = packages.package_name_id
-    inner join versions
-    on versions.id = packages.version_id
-    inner join libraries
-    on libraries.package_id = packages.id
-    where package_names.content = $1
-    and versions.content = $2
-    and packages.revision = $3
-    order by libraries.id asc
-  |]
-  (Contravariant.contrazip3
-    (Contravariant.contramap fromPackageName textParam)
-    (Sql.Encode.int4 |> arrayOf |> Contravariant.contramap fromVersion)
-    (Sql.Encode.int4
-      |> Sql.Encode.value
-      |> Contravariant.contramap fromRevision))
-  (Sql.Decode.int4
-    |> Sql.Decode.value
-    |> Sql.Decode.rowsList
-    |> fmap (map toLibraryId))
-
-
-selectModules :: Sql.Query (PackageName, Version, Revision, LibraryId) [ModuleName]
-selectModules = makeQuery
-  [Quotes.string|
-    select distinct module_names.content
-    from packages
-    inner join package_names
-    on package_names.id = packages.package_name_id
-    inner join versions
-    on versions.id = packages.version_id
-    inner join libraries
-    on libraries.package_id = packages.id
-    inner join libraries_module_names
-    on libraries_module_names.library_id = libraries.id
-    inner join module_names
-    on module_names.id = libraries_module_names.module_name_id
-    where package_names.content = $1
-    and versions.content = $2
-    and packages.revision = $3
-    and libraries.id = $4
-    order by module_names.content asc
-  |]
-  (Contravariant.contrazip4
-    (Contravariant.contramap fromPackageName textParam)
-    (Sql.Encode.int4 |> arrayOf |> Contravariant.contramap fromVersion)
-    (Sql.Encode.int4
-      |> Sql.Encode.value
-      |> Contravariant.contramap fromRevision)
-    (Sql.Encode.int4
-      |> Sql.Encode.value
-      |> Contravariant.contramap fromLibraryId))
-    (Sql.Decode.text
-      |> Sql.Decode.arrayValue
-      |> Sql.Decode.arrayDimension Monad.replicateM
-      |> Sql.Decode.array
-      |> Sql.Decode.value
-      |> Sql.Decode.rowsList
-      |> fmap (map toModuleName))
-
-
-selectDependencyId :: Sql.Query (ConstraintId, PackageNameId) DependencyId
-selectDependencyId = makeQuery
-  [Quotes.string|
-    select id
-    from dependencies
-    where constraint_id = $1
-    and package_name_id = $2
-  |]
-  (Contravariant.contrazip2
-    (Sql.Encode.int4 |> Sql.Encode.value |> Contravariant.contramap fromConstraintId)
-    (Sql.Encode.int4 |> Sql.Encode.value |> Contravariant.contramap fromPackageNameId))
-  (Sql.Decode.int4 |> Sql.Decode.value |> Sql.Decode.singleRow |> fmap toDependencyId)
-
-
-insertDependencyLibrary :: Sql.Query (DependencyId, LibraryId) ()
-insertDependencyLibrary = makeQuery
-  [Quotes.string|
-    insert into dependencies_libraries ( dependency_id, library_id )
-    values ( $1, $2 )
-    on conflict do nothing
-  |]
-  (Contravariant.contrazip2
-    (Sql.Encode.int4 |> Sql.Encode.value |> Contravariant.contramap fromDependencyId)
-    (Sql.Encode.int4 |> Sql.Encode.value |> Contravariant.contramap fromLibraryId))
-  Sql.Decode.unit
-
-
-insertBenchmarkName :: Sql.Query BenchmarkName ()
-insertBenchmarkName = makeQuery
-  [Quotes.string|
-    insert into benchmark_names ( content )
-    values ( $1 )
-    on conflict do nothing
-  |]
-  (Sql.Encode.text |> Sql.Encode.value |> Contravariant.contramap fromBenchmarkName)
-  Sql.Decode.unit
-
-
-selectBenchmarkNameId :: Sql.Query BenchmarkName BenchmarkNameId
-selectBenchmarkNameId = makeQuery
-  [Quotes.string|
-    select id
-    from benchmark_names
-    where content = $1
-  |]
-  (Sql.Encode.text |> Sql.Encode.value |> Contravariant.contramap fromBenchmarkName)
-  (Sql.Decode.int4 |> Sql.Decode.value |> Sql.Decode.singleRow |> fmap toBenchmarkNameId)
-
-
-insertBenchmark :: Sql.Query (PackageId, BenchmarkNameId, ConditionId) ()
-insertBenchmark = makeQuery
-  [Quotes.string|
-    insert into benchmarks ( package_id, benchmark_name_id, condition_id )
-    values ( $1, $2, $3 )
-    on conflict do nothing
-  |]
-  (Contravariant.contrazip3
-    (Sql.Encode.int4 |> Sql.Encode.value |> Contravariant.contramap fromPackageId)
-    (Sql.Encode.int4 |> Sql.Encode.value |> Contravariant.contramap fromBenchmarkNameId)
-    (Sql.Encode.int4 |> Sql.Encode.value |> Contravariant.contramap fromConditionId))
-  Sql.Decode.unit
-
-
-selectBenchmarkId
-  :: Sql.Query (PackageId, BenchmarkNameId, ConditionId) BenchmarkId
-selectBenchmarkId = makeQuery
-  [Quotes.string|
-    select id
-    from benchmarks
-    where package_id = $1
-    and benchmark_name_id = $2
-    and condition_id = $3
-  |]
-  (Contravariant.contrazip3
-    (Sql.Encode.int4 |> Sql.Encode.value |> Contravariant.contramap fromPackageId)
-    (Sql.Encode.int4 |> Sql.Encode.value |> Contravariant.contramap fromBenchmarkNameId)
-    (Sql.Encode.int4 |> Sql.Encode.value |> Contravariant.contramap fromConditionId))
-  (Sql.Decode.int4 |> Sql.Decode.value |> Sql.Decode.singleRow |> fmap toBenchmarkId)
-
-
-insertDependencyBenchmark :: Sql.Query (DependencyId, BenchmarkId) ()
-insertDependencyBenchmark = makeQuery
-  [Quotes.string|
-    insert into dependencies_benchmarks ( dependency_id, benchmark_id )
-    values ( $1, $2 )
-    on conflict do nothing
-  |]
-  (Contravariant.contrazip2
-    (Sql.Encode.int4 |> Sql.Encode.value |> Contravariant.contramap fromDependencyId)
-    (Sql.Encode.int4 |> Sql.Encode.value |> Contravariant.contramap fromBenchmarkId))
-  Sql.Decode.unit
-
-
-insertTestName :: Sql.Query TestName ()
-insertTestName = makeQuery
-  [Quotes.string|
-    insert into test_names ( content )
-    values ( $1 )
-    on conflict do nothing
-  |]
-  (Sql.Encode.text |> Sql.Encode.value |> Contravariant.contramap fromTestName)
-  Sql.Decode.unit
-
-
-selectTestNameId :: Sql.Query TestName TestNameId
-selectTestNameId = makeQuery
-  [Quotes.string|
-    select id
-    from test_names
-    where content = $1
-  |]
-  (Sql.Encode.text |> Sql.Encode.value |> Contravariant.contramap fromTestName)
-  (Sql.Decode.int4 |> Sql.Decode.value |> Sql.Decode.singleRow |> fmap toTestNameId)
-
-
-insertTest :: Sql.Query (PackageId, TestNameId, ConditionId) ()
-insertTest = makeQuery
-  [Quotes.string|
-    insert into tests ( package_id, test_name_id, condition_id )
-    values ( $1, $2, $3 )
-    on conflict do nothing
-  |]
-  (Contravariant.contrazip3
-    (Sql.Encode.int4 |> Sql.Encode.value |> Contravariant.contramap fromPackageId)
-    (Sql.Encode.int4 |> Sql.Encode.value |> Contravariant.contramap fromTestNameId)
-    (Sql.Encode.int4 |> Sql.Encode.value |> Contravariant.contramap fromConditionId))
-  Sql.Decode.unit
-
-
-selectTestId :: Sql.Query (PackageId, TestNameId, ConditionId) TestId
-selectTestId = makeQuery
-  [Quotes.string|
-    select id
-    from tests
-    where package_id = $1
-    and test_name_id = $2
-    and condition_id = $3
-  |]
-  (Contravariant.contrazip3
-    (Sql.Encode.int4 |> Sql.Encode.value |> Contravariant.contramap fromPackageId)
-    (Sql.Encode.int4 |> Sql.Encode.value |> Contravariant.contramap fromTestNameId)
-    (Sql.Encode.int4 |> Sql.Encode.value |> Contravariant.contramap fromConditionId))
-  (Sql.Decode.int4 |> Sql.Decode.value |> Sql.Decode.singleRow |> fmap toTestId)
-
-
-insertDependencyTest :: Sql.Query (DependencyId, TestId) ()
-insertDependencyTest = makeQuery
-  [Quotes.string|
-    insert into dependencies_tests ( dependency_id, test_id )
-    values ( $1, $2 )
-    on conflict do nothing
-  |]
-  (Contravariant.contrazip2
-    (Sql.Encode.int4 |> Sql.Encode.value |> Contravariant.contramap fromDependencyId)
-    (Sql.Encode.int4 |> Sql.Encode.value |> Contravariant.contramap fromTestId))
-  Sql.Decode.unit
-
-
-insertExecutableName :: Sql.Query ExecutableName ()
-insertExecutableName = makeQuery
-  [Quotes.string|
-    insert into executable_names ( content )
-    values ( $1 )
-    on conflict do nothing
-  |]
-  (Sql.Encode.text |> Sql.Encode.value |> Contravariant.contramap fromExecutableName)
-  Sql.Decode.unit
-
-
-selectExecutableNameId :: Sql.Query ExecutableName ExecutableNameId
-selectExecutableNameId = makeQuery
-  [Quotes.string|
-    select id
-    from executable_names
-    where content = $1
-  |]
-  (Sql.Encode.text |> Sql.Encode.value |> Contravariant.contramap fromExecutableName)
-  (Sql.Decode.int4 |> Sql.Decode.value |> Sql.Decode.singleRow |> fmap toExecutableNameId)
-
-
-insertExecutable :: Sql.Query (PackageId, ExecutableNameId, ConditionId) ()
-insertExecutable = makeQuery
-  [Quotes.string|
-    insert into executables ( package_id, executable_name_id, condition_id )
-    values ( $1, $2, $3 )
-    on conflict do nothing
-  |]
-  (Contravariant.contrazip3
-    (Sql.Encode.int4 |> Sql.Encode.value |> Contravariant.contramap fromPackageId)
-    (Sql.Encode.int4 |> Sql.Encode.value |> Contravariant.contramap fromExecutableNameId)
-    (Sql.Encode.int4 |> Sql.Encode.value |> Contravariant.contramap fromConditionId))
-  Sql.Decode.unit
-
-
-selectExecutableId
-  :: Sql.Query (PackageId, ExecutableNameId, ConditionId) ExecutableId
-selectExecutableId = makeQuery
-  [Quotes.string|
-    select id
-    from executables
-    where package_id = $1
-    and executable_name_id = $2
-    and condition_id = $3
-  |]
-  (Contravariant.contrazip3
-    (Sql.Encode.int4 |> Sql.Encode.value |> Contravariant.contramap fromPackageId)
-    (Sql.Encode.int4 |> Sql.Encode.value |> Contravariant.contramap fromExecutableNameId)
-    (Sql.Encode.int4 |> Sql.Encode.value |> Contravariant.contramap fromConditionId))
-  (Sql.Decode.int4 |> Sql.Decode.value |> Sql.Decode.singleRow |> fmap toExecutableId)
-
-
-insertDependencyExecutable :: Sql.Query (DependencyId, ExecutableId) ()
-insertDependencyExecutable = makeQuery
-  [Quotes.string|
-    insert into dependencies_executables ( dependency_id, executable_id )
-    values ( $1, $2 )
-    on conflict do nothing
-  |]
-  (Contravariant.contrazip2
-    (Sql.Encode.int4 |> Sql.Encode.value |> Contravariant.contramap fromDependencyId)
-    (Sql.Encode.int4 |> Sql.Encode.value |> Contravariant.contramap fromExecutableId))
-  Sql.Decode.unit
-
-
-insertLibraryName :: Sql.Query LibraryName ()
-insertLibraryName = makeQuery
-  [Quotes.string|
-    insert into library_names ( content )
-    values ( $1 )
-    on conflict do nothing
-  |]
-  (Contravariant.contramap fromLibraryName textParam)
-  Sql.Decode.unit
-
-
-selectLibraryNameId :: Sql.Query LibraryName LibraryNameId
-selectLibraryNameId = makeQuery
-  [Quotes.string|
-    select id
-    from library_names
-    where content = $1
-  |]
-  (Contravariant.contramap fromLibraryName textParam)
-  (Sql.Decode.int4 |> Sql.Decode.value |> Sql.Decode.singleRow |> fmap toLibraryNameId)
-
-
-insertCondition :: Sql.Query Condition ()
-insertCondition = makeQuery
-  [Quotes.string|
-    insert into conditions ( content )
-    values ( $1 )
-    on conflict do nothing
-  |]
-  (Sql.Encode.text |> Sql.Encode.value |> Contravariant.contramap fromCondition)
-  Sql.Decode.unit
-
-
-selectConditionId :: Sql.Query Condition ConditionId
-selectConditionId = makeQuery
-  [Quotes.string|
-    select id
-    from conditions
-    where content = $1
-  |]
-  (Sql.Encode.text |> Sql.Encode.value |> Contravariant.contramap fromCondition)
-  (Sql.Decode.int4 |> Sql.Decode.value |> Sql.Decode.singleRow |> fmap toConditionId)
-
-
-insertLibrary :: Sql.Query (PackageId, LibraryNameId, ConditionId) ()
-insertLibrary = makeQuery
-  [Quotes.string|
-    insert into libraries ( package_id, library_name_id, condition_id )
-    values ( $1, $2, $3 )
-    on conflict do nothing
-  |]
-  (Contravariant.contrazip3
-    (Sql.Encode.int4 |> Sql.Encode.value |> Contravariant.contramap fromPackageId)
-    (Sql.Encode.int4 |> Sql.Encode.value |> Contravariant.contramap fromLibraryNameId)
-    (Sql.Encode.int4 |> Sql.Encode.value |> Contravariant.contramap fromConditionId))
-  Sql.Decode.unit
-
-
-selectLibraryId :: Sql.Query (PackageId, LibraryNameId, ConditionId) LibraryId
-selectLibraryId = makeQuery
-  [Quotes.string|
-    select id
-    from libraries
-    where package_id = $1
-    and library_name_id = $2
-    and condition_id = $3
-  |]
-  (Contravariant.contrazip3
-    (Sql.Encode.int4 |> Sql.Encode.value |> Contravariant.contramap fromPackageId)
-    (Sql.Encode.int4 |> Sql.Encode.value |> Contravariant.contramap fromLibraryNameId)
-    (Sql.Encode.int4 |> Sql.Encode.value |> Contravariant.contramap fromConditionId))
-  (Sql.Decode.int4
-    |> Sql.Decode.value
-    |> Sql.Decode.singleRow
-    |> fmap toLibraryId)
-
-
-selectModuleNameId :: Sql.Query ModuleName ModuleNameId
-selectModuleNameId = makeQuery
-  [Quotes.string|
-    select id
-    from module_names
-    where content = $1
-  |]
-  (Sql.Encode.text |> arrayOf |> Contravariant.contramap fromModuleName)
-  (Sql.Decode.int4 |> Sql.Decode.value |> Sql.Decode.singleRow |> fmap toModuleNameId)
-
-
-insertLibraryModuleName :: Sql.Query (LibraryId, ModuleNameId) ()
-insertLibraryModuleName = makeQuery
-  [Quotes.string|
-    insert into libraries_module_names ( library_id, module_name_id )
-    values ( $1, $2 )
-    on conflict do nothing
-  |]
-  (Contravariant.contrazip2
-    (Sql.Encode.int4 |> Sql.Encode.value |> Contravariant.contramap fromLibraryId)
-    (Sql.Encode.int4 |> Sql.Encode.value |> Contravariant.contramap fromModuleNameId))
-  Sql.Decode.unit
-
-
-selectRepoTypeId :: Sql.Query RepoType RepoTypeId
-selectRepoTypeId = makeQuery
-  [Quotes.string|
-    select id
-    from repo_types
-    where content = $1
-  |]
-  (Sql.Encode.text |> Sql.Encode.value |> Contravariant.contramap fromRepoType)
-  (Sql.Decode.int4 |> Sql.Decode.value |> Sql.Decode.singleRow |> fmap toRepoTypeId)
-
-
-insertRepoType :: Sql.Query RepoType ()
-insertRepoType = makeQuery
-  [Quotes.string|
-    insert into repo_types ( content )
-    values ( $1 )
-    on conflict do nothing
-  |]
-  (Sql.Encode.text |> Sql.Encode.value |> Contravariant.contramap fromRepoType)
-  Sql.Decode.unit
-
-
-selectRepoKindId :: Sql.Query RepoKind RepoKindId
-selectRepoKindId = makeQuery
-  [Quotes.string|
-    select id
-    from repo_kinds
-    where content = $1
-  |]
-  (Sql.Encode.text |> Sql.Encode.value |> Contravariant.contramap fromRepoKind)
-  (Sql.Decode.int4 |> Sql.Decode.value |> Sql.Decode.singleRow |> fmap toRepoKindId)
-
-
-insertRepoKind :: Sql.Query RepoKind ()
-insertRepoKind = makeQuery
-  [Quotes.string|
-    insert into repo_kinds ( content )
-    values ( $1 )
-    on conflict do nothing
-  |]
-  (Sql.Encode.text |> Sql.Encode.value |> Contravariant.contramap fromRepoKind)
-  Sql.Decode.unit
-
-
-insertPackageRepo :: Sql.Query (PackageId, RepoId) ()
-insertPackageRepo = makeQuery
-  [Quotes.string|
-    insert into packages_repos ( package_id, repo_id )
-    values ( $1, $2 )
-    on conflict do nothing
-  |]
-  (Contravariant.contrazip2
-    (Sql.Encode.int4 |> Sql.Encode.value |> Contravariant.contramap fromPackageId)
-    (Sql.Encode.int4 |> Sql.Encode.value |> Contravariant.contramap fromRepoId))
-  Sql.Decode.unit
-
-
-selectRepoId :: Sql.Query (RepoKindId, RepoTypeId, RepoUrl) RepoId
-selectRepoId = makeQuery
-  [Quotes.string|
-    select id
-    from repos
-    where repo_kind_id = $1
-    and repo_type_id = $2
-    and url = $3
-  |]
-  (Contravariant.contrazip3
-    (Sql.Encode.int4 |> Sql.Encode.value |> Contravariant.contramap fromRepoKindId)
-    (Sql.Encode.int4 |> Sql.Encode.value |> Contravariant.contramap fromRepoTypeId)
-    (Sql.Encode.text |> Sql.Encode.value |> Contravariant.contramap fromRepoUrl))
-  (Sql.Decode.int4 |> Sql.Decode.value |> Sql.Decode.singleRow |> fmap toRepoId)
-
-
-insertRepo :: Sql.Query (RepoKindId, RepoTypeId, RepoUrl) ()
-insertRepo = makeQuery
-  [Quotes.string|
-    insert into repos ( repo_kind_id, repo_type_id, url )
-    values ( $1, $2, $3 )
-    on conflict do nothing
-  |]
-  (Contravariant.contrazip3
-    (Sql.Encode.int4 |> Sql.Encode.value |> Contravariant.contramap fromRepoKindId)
-    (Sql.Encode.int4 |> Sql.Encode.value |> Contravariant.contramap fromRepoTypeId)
-    (Sql.Encode.text |> Sql.Encode.value |> Contravariant.contramap fromRepoUrl))
-  Sql.Decode.unit
-
-
-insertDependency :: Sql.Query (ConstraintId, PackageNameId) ()
-insertDependency = makeQuery
-  [Quotes.string|
-    insert into dependencies ( constraint_id, package_name_id )
-    values ( $1, $2 )
-    on conflict do nothing
-  |]
-  (Contravariant.contrazip2
-    (Sql.Encode.int4 |> Sql.Encode.value |> Contravariant.contramap fromConstraintId)
-    (Sql.Encode.int4 |> Sql.Encode.value |> Contravariant.contramap fromPackageNameId))
-  Sql.Decode.unit
-
-
-selectConstraintId :: Sql.Query Constraint ConstraintId
-selectConstraintId = makeQuery
-  [Quotes.string|
-    select id
-    from constraints
-    where content = $1
-  |]
-  (Sql.Encode.text |> Sql.Encode.value |> Contravariant.contramap fromConstraint)
-  (Sql.Decode.int4 |> Sql.Decode.value |> Sql.Decode.singleRow |> fmap toConstraintId)
-
-
-selectPackageNameId :: Sql.Query PackageName PackageNameId
-selectPackageNameId = makeQuery
-  [Quotes.string|
-    select id
-    from package_names
-    where content = $1
-  |]
-  (Contravariant.contramap fromPackageName textParam)
-  (Sql.Decode.int4 |> Sql.Decode.value |> Sql.Decode.singleRow |> fmap toPackageNameId)
-
-
-insertConstraint :: Sql.Query Constraint ()
-insertConstraint = makeQuery
-  [Quotes.string|
-    insert into constraints ( content )
-    values ( $1 )
-    on conflict do nothing
-  |]
-  (Sql.Encode.text |> Sql.Encode.value |> Contravariant.contramap fromConstraint)
-  Sql.Decode.unit
-
-
-insertModuleName :: Sql.Query ModuleName ()
-insertModuleName = makeQuery
-  [Quotes.string|
-    insert into module_names ( content )
-    values ( $1 )
-    on conflict do nothing
-  |]
-  (Sql.Encode.text |> arrayOf |> Contravariant.contramap fromModuleName)
-  Sql.Decode.unit
-
-
-insertPackageName :: Sql.Query PackageName ()
-insertPackageName = makeQuery
-  [Quotes.string|
-    insert into package_names ( content )
-    values ( $1 )
-    on conflict do nothing
-  |]
-  (Contravariant.contramap fromPackageName textParam)
-  Sql.Decode.unit
-
-
-insertVersion :: Sql.Query Version ()
-insertVersion = makeQuery
-  [Quotes.string|
-    insert into versions ( content )
-    values ( $1 )
-    on conflict do nothing
-  |]
-  (Sql.Encode.int4 |> arrayOf |> Contravariant.contramap fromVersion)
-  Sql.Decode.unit
-
-
-insertLicense :: Sql.Query License ()
-insertLicense = makeQuery
-  [Quotes.string|
-    insert into licenses ( content )
-    values ( $1 )
-    on conflict do nothing
-  |]
-  (Sql.Encode.text |> Sql.Encode.value |> Contravariant.contramap fromLicense)
-  Sql.Decode.unit
-
-
-insertPackage
-  :: Sql.Query
-    ( PackageName
-    , Version
-    , Revision
-    , License
-    , Synopsis
-    , Description
-    , PackageUrl
-    )
-    ()
-insertPackage = makeQuery
-  [Quotes.string|
-    insert into packages (
-      package_name_id,
-      version_id,
-      revision,
-      license_id,
-      synopsis,
-      description,
-      url
-    ) values (
-      ( select id from package_names where content = $1 ),
-      ( select id from versions where content = $2 ),
-      $3,
-      ( select id from licenses where content = $4 ),
-      $5,
-      $6,
-      $7
-    ) on conflict do nothing
-  |]
-  (Contravariant.contrazip7
-    (Contravariant.contramap fromPackageName textParam)
-    (Sql.Encode.int4 |> arrayOf |> Contravariant.contramap fromVersion)
-    (Sql.Encode.int4 |> Sql.Encode.value |> Contravariant.contramap fromRevision)
-    (Sql.Encode.text |> Sql.Encode.value |> Contravariant.contramap fromLicense)
-    (Sql.Encode.text |> Sql.Encode.value |> Contravariant.contramap fromSynopsis)
-    (Sql.Encode.text |> Sql.Encode.value |> Contravariant.contramap fromDescription)
-    (Sql.Encode.text |> Sql.Encode.value |> Contravariant.contramap fromPackageUrl))
-  Sql.Decode.unit
-
-
-selectPackageId :: Sql.Query (PackageName, Version, Revision) PackageId
-selectPackageId = makeQuery
-  [Quotes.string|
-    select packages.id
-    from packages
-    inner join package_names
-    on package_names.id = packages.package_name_id
-    inner join versions
-    on versions.id = packages.version_id
-    where package_names.content = $1
-    and versions.content = $2
-    and packages.revision = $3
-  |]
-  (Contravariant.contrazip3
-    (Contravariant.contramap fromPackageName textParam)
-    (Sql.Encode.int4 |> arrayOf |> Contravariant.contramap fromVersion)
-    (Sql.Encode.int4 |> Sql.Encode.value |> Contravariant.contramap fromRevision))
-  (Sql.Decode.int4 |> Sql.Decode.value |> Sql.Decode.singleRow |> fmap toPackageId)
-
-
-insertCategory :: Sql.Query Category ()
-insertCategory = makeQuery
-  [Quotes.string|
-    insert into categories ( content )
-    values ( $1 )
-    on conflict do nothing
-  |]
-  (Sql.Encode.text |> Sql.Encode.value |> Contravariant.contramap fromCategory)
-  Sql.Decode.unit
-
-
-selectCategoryId :: Sql.Query Category CategoryId
-selectCategoryId = makeQuery
-  [Quotes.string|
-    select id
-    from categories
-    where content = $1
-  |]
-  (Sql.Encode.text |> Sql.Encode.value |> Contravariant.contramap fromCategory)
-  (Sql.Decode.int4 |> Sql.Decode.value |> Sql.Decode.singleRow |> fmap toCategoryId)
-
-
-insertCategoryPackage :: Sql.Query (CategoryId, PackageId) ()
-insertCategoryPackage = makeQuery
-  [Quotes.string|
-    insert into categories_packages ( category_id, package_id )
-    values ( $1, $2 )
-    on conflict do nothing
-  |]
-  (Contravariant.contrazip2
-    (Sql.Encode.int4 |> Sql.Encode.value |> Contravariant.contramap fromCategoryId)
-    (Sql.Encode.int4 |> Sql.Encode.value |> Contravariant.contramap fromPackageId))
-  Sql.Decode.unit
-
-
-makeQuery
-  :: String -> Sql.Encode.Params a -> Sql.Decode.Result b -> Sql.Query a b
-makeQuery rawSql encoder decoder = let
-  sql = rawSql |> Text.pack |> Text.encodeUtf8
-  prepare = True
-  in Sql.statement sql encoder decoder prepare
-
-
-runQuery :: Sql.Connection -> Sql.Query a b -> a -> IO b
+runQuery :: Sql.Connection -> Query a b -> a -> IO b
 runQuery connection query params = do
   let session = Sql.query params query
   result <- Sql.run session connection
   case result of
     Left problem -> fail (show problem)
     Right value -> pure value
-
-
-arrayOf :: Sql.Encode.Value a -> Sql.Encode.Params [a]
-arrayOf x = x
-  |> Sql.Encode.arrayValue
-  |> Sql.Encode.arrayDimension foldl
-  |> Sql.Encode.array
-  |> Sql.Encode.value
-
-
-contraUntag :: Contravariant.Contravariant f => f a -> f (Tagged.Tagged t a)
-contraUntag = Contravariant.contramap Tagged.untag
 
 
 runMigration :: Sql.Connection -> Sql.MigrationCommand -> IO ()
@@ -810,22 +149,3 @@ getConnection = do
   case result of
     Left problem -> problem |> show |> fail
     Right connection -> pure connection
-
-
-idParam :: Sql.Encode.Params (Tagged.Tagged t Int.Int32)
-idParam = Sql.Encode.int4 |> Sql.Encode.value |> contraUntag
-
-
-idResult :: Sql.Decode.Result (Tagged.Tagged t Int.Int32)
-idResult = Sql.Decode.int4
-  |> Sql.Decode.value
-  |> Sql.Decode.singleRow
-  |> fmap Tagged.Tagged
-
-
-textParam :: Sql.Encode.Params Text.Text
-textParam = Sql.Encode.value Sql.Encode.text
-
-
-taggedTextParam :: Sql.Encode.Params (Tagged.Tagged t Text.Text)
-taggedTextParam = contraUntag textParam

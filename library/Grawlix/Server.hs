@@ -108,7 +108,7 @@ serverWith connection
 
 
 getHealthCheckHandler :: Sql.Connection -> Servant.Handler Bool
-getHealthCheckHandler connection = io (runQuery connection pingQuery ())
+getHealthCheckHandler connection = io (runQuery connection selectTrue ())
 
 
 getPackagesHandler :: Sql.Connection -> Servant.Handler [PackageName]

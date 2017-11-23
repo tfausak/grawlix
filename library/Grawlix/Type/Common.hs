@@ -8,9 +8,9 @@ module Grawlix.Type.Common
   , parseUrlPiece
   ) where
 
-import Data.Aeson
-import Data.Int
-import Data.Map
-import Data.Set
-import Data.Text
-import Web.HttpApiData
+import Data.Aeson (ToJSON)
+import Data.Int (Int32)
+import Data.Map (Map)
+import Data.Set (Set)
+import Data.Text (Text)
+import Web.HttpApiData (FromHttpApiData, parseUrlPiece)
