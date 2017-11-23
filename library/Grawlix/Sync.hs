@@ -83,7 +83,7 @@ main = do
 
 
 -- There is a single Cabal file in the entire Hackage index that is encoded
--- with ISO-8859-1 (also know as Latin-1 or Windows-1252) instead of UTF-8. It
+-- with ISO-8859-1 (also known as Latin-1 or Windows-1252) instead of UTF-8. It
 -- contains a single 0xF6 byte (for U+00F6) that should be encoded as 0xC3 0xB6
 -- instead. This function is responsible for fixing that single byte.
 -- <https://hackage.haskell.org/package/nat-0.1/revision/0.cabal>
