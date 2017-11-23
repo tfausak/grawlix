@@ -166,7 +166,7 @@ main = do
 -- instead. This function is responsible for fixing that single byte.
 -- <https://hackage.haskell.org/package/nat-0.1/revision/0.cabal>
 fixEncoding :: LazyBytes.ByteString -> LazyBytes.ByteString
-fixEncoding bytes = LazyBytes.concatMap fixByte bytes
+fixEncoding = LazyBytes.concatMap fixByte
 
 
 fixByte :: Word.Word8 -> LazyBytes.ByteString
@@ -183,11 +183,11 @@ fixByte byte = if byte == 0xf6
 -- <https://hackage.haskell.org/package/dictionary-sharing-0.1.0.0/revision/0.cabal>
 -- <https://hackage.haskell.org/package/testing-type-modifiers-0.1.0.0/revision/0.cabal>
 stripBom :: LazyText.Text -> LazyText.Text
-stripBom text = LazyText.dropWhile isBom text
+stripBom = LazyText.dropWhile isBom
 
 
 isBom :: Char -> Bool
-isBom char = char == '\xfeff'
+isBom = (== '\xfeff')
 
 
 handlePackage :: Sql.Connection -> Package -> IO ()
@@ -565,7 +565,7 @@ fromCabalConditions conditions = conditions
 
 combineConditions
   :: [Cabal.Condition Cabal.ConfVar] -> Cabal.Condition Cabal.ConfVar
-combineConditions conditions = foldr Cabal.CAnd (Cabal.Lit True) conditions
+combineConditions = foldr Cabal.CAnd (Cabal.Lit True)
 
 
 simplifyCondition
@@ -750,7 +750,7 @@ foldTree conditions constraints tree = case Tree.rootLabel tree of
 
 
 fromEntries :: Tar.Entries a -> [Tar.Entry]
-fromEntries = Tar.foldEntries (:) [] (\ _ -> [])
+fromEntries = Tar.foldEntries (:) [] (const [])
 
 
 parseDescription :: Catch.MonadThrow m => LazyText.Text -> m Cabal.GenericPackageDescription
@@ -849,7 +849,7 @@ lazyDecodeUtf8 bytes = case LazyText.decodeUtf8' bytes of
 
 
 fromJust :: Catch.MonadThrow m => String -> Maybe a -> m a
-fromJust message value = maybe (throw message) pure value
+fromJust message = maybe (throw message) pure
 
 
 throw :: Catch.MonadThrow m => String -> m a
