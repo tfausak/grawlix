@@ -42,6 +42,7 @@ library:
     - http-client
     - http-client-tls
     - http-types
+    - servant
     - servant-server
     - tagged
     - tar
