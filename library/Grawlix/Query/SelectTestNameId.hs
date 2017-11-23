@@ -1,5 +1,3 @@
-{-# LANGUAGE QuasiQuotes #-}
-
 module Grawlix.Query.SelectTestNameId
   ( selectTestNameId
   ) where
@@ -13,10 +11,8 @@ import qualified Hasql.Decoders as D
 selectTestNameId :: Query TestName TestNameId
 selectTestNameId =
   makeQuery
-    [string|
-      select id
-      from test_names
-      where content = $1
-    |]
+    " select id \
+    \ from test_names \
+    \ where content = $1 "
     (contramap fromTestName encodeText)
     (toTestNameId <$> D.singleRow decodeInt32)

@@ -16,7 +16,6 @@ module Grawlix.Query.Common
   , encodeText
   , encodeUnit
   , makeQuery
-  , string
   ) where
 
 import Contravariant.Extras
@@ -32,7 +31,6 @@ import Data.Functor.Contravariant (contramap)
 import Data.Int (Int32)
 import Data.Text (Text, pack)
 import Data.Text.Encoding (encodeUtf8)
-import Grawlix.Quotes (string)
 import Hasql.Query (Query, statement)
 
 import qualified Hasql.Decoders as D

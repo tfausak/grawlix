@@ -1,5 +1,3 @@
-{-# LANGUAGE QuasiQuotes #-}
-
 module Grawlix.Query.SelectLibraryId
   ( selectLibraryId
   ) where
@@ -15,13 +13,11 @@ import qualified Hasql.Decoders as D
 selectLibraryId :: Query (PackageId, LibraryNameId, ConditionId) LibraryId
 selectLibraryId =
   makeQuery
-    [string|
-      select id
-      from libraries
-      where package_id = $1
-      and library_name_id = $2
-      and condition_id = $3
-    |]
+    " select id \
+    \ from libraries \
+    \ where package_id = $1 \
+    \ and library_name_id = $2 \
+    \ and condition_id = $3 "
     (contrazip3
        (contramap fromPackageId encodeInt32)
        (contramap fromLibraryNameId encodeInt32)

@@ -1,5 +1,3 @@
-{-# LANGUAGE QuasiQuotes #-}
-
 module Grawlix.Query.SelectPackageNameId
   ( selectPackageNameId
   ) where
@@ -13,10 +11,8 @@ import qualified Hasql.Decoders as D
 selectPackageNameId :: Query PackageName PackageNameId
 selectPackageNameId =
   makeQuery
-    [string|
-      select id
-      from package_names
-      where content = $1
-    |]
+    " select id \
+    \ from package_names \
+    \ where content = $1 "
     (contramap fromPackageName encodeText)
     (toPackageNameId <$> D.singleRow decodeInt32)

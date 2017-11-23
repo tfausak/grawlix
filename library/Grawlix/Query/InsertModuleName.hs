@@ -1,5 +1,3 @@
-{-# LANGUAGE QuasiQuotes #-}
-
 module Grawlix.Query.InsertModuleName
   ( insertModuleName
   ) where
@@ -12,10 +10,8 @@ import qualified Hasql.Encoders as E
 insertModuleName :: Query ModuleName ()
 insertModuleName =
   makeQuery
-    [string|
-      insert into module_names ( content )
-      values ( $1 )
-      on conflict do nothing
-    |]
+    " insert into module_names ( content ) \
+    \ values ( $1 ) \
+    \ on conflict do nothing "
     (contramap fromModuleName $ encodeList E.text)
     decodeUnit

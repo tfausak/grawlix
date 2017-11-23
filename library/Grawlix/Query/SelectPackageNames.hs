@@ -1,5 +1,3 @@
-{-# LANGUAGE QuasiQuotes #-}
-
 module Grawlix.Query.SelectPackageNames
   ( selectPackageNames
   ) where
@@ -12,10 +10,8 @@ import qualified Hasql.Decoders as D
 selectPackageNames :: Query () [PackageName]
 selectPackageNames =
   makeQuery
-    [string|
-      select distinct content
-      from package_names
-      order by content asc
-    |]
+    " select distinct content \
+    \ from package_names \
+    \ order by content asc "
     encodeUnit
     (map toPackageName <$> D.rowsList decodeText)

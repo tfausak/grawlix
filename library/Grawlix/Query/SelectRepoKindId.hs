@@ -1,5 +1,3 @@
-{-# LANGUAGE QuasiQuotes #-}
-
 module Grawlix.Query.SelectRepoKindId
   ( selectRepoKindId
   ) where
@@ -13,10 +11,8 @@ import qualified Hasql.Decoders as D
 selectRepoKindId :: Query RepoKind RepoKindId
 selectRepoKindId =
   makeQuery
-    [string|
-      select id
-      from repo_kinds
-      where content = $1
-    |]
+    " select id \
+    \ from repo_kinds \
+    \ where content = $1 "
     (contramap fromRepoKind encodeText)
     (toRepoKindId <$> D.singleRow decodeInt32)

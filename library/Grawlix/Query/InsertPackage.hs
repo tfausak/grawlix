@@ -1,5 +1,3 @@
-{-# LANGUAGE QuasiQuotes #-}
-
 module Grawlix.Query.InsertPackage
   ( insertPackage
   ) where
@@ -25,25 +23,23 @@ insertPackage ::
            , PackageUrl) ()
 insertPackage =
   makeQuery
-    [string|
-      insert into packages (
-        package_name_id,
-        version_id,
-        revision,
-        license_id,
-        synopsis,
-        description,
-        url
-      ) values (
-        ( select id from package_names where content = $1 ),
-        ( select id from versions where content = $2 ),
-        $3,
-        ( select id from licenses where content = $4 ),
-        $5,
-        $6,
-        $7
-      ) on conflict do nothing
-    |]
+    " insert into packages ( \
+    \   package_name_id, \
+    \   version_id, \
+    \   revision, \
+    \   license_id, \
+    \   synopsis, \
+    \   description, \
+    \   url \
+    \ ) values ( \
+    \   ( select id from package_names where content = $1 ), \
+    \   ( select id from versions where content = $2 ), \
+    \   $3, \
+    \   ( select id from licenses where content = $4 ), \
+    \   $5, \
+    \   $6, \
+    \   $7 \
+    \ ) on conflict do nothing "
     (contrazip7
        (contramap fromPackageName encodeText)
        (contramap fromVersion $ encodeList E.int4)

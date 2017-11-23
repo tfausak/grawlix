@@ -1,5 +1,3 @@
-{-# LANGUAGE QuasiQuotes #-}
-
 module Grawlix.Query.SelectDependencyId
   ( selectDependencyId
   ) where
@@ -14,12 +12,10 @@ import qualified Hasql.Decoders as D
 selectDependencyId :: Query (ConstraintId, PackageNameId) DependencyId
 selectDependencyId =
   makeQuery
-    [string|
-      select id
-      from dependencies
-      where constraint_id = $1
-      and package_name_id = $2
-    |]
+    " select id \
+    \ from dependencies \
+    \ where constraint_id = $1 \
+    \ and package_name_id = $2 "
     (contrazip2
        (contramap fromConstraintId encodeInt32)
        (contramap fromPackageNameId encodeInt32))

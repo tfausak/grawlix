@@ -1,5 +1,3 @@
-{-# LANGUAGE QuasiQuotes #-}
-
 module Grawlix.Query.SelectRevisions
   ( selectRevisions
   ) where
@@ -15,17 +13,15 @@ import qualified Hasql.Encoders as E
 selectRevisions :: Query (PackageName, Version) [Revision]
 selectRevisions =
   makeQuery
-    [string|
-      select distinct packages.revision
-      from packages
-      inner join package_names
-      on package_names.id = packages.package_name_id
-      inner join versions
-      on versions.id = packages.version_id
-      where package_names.content = $1
-      and versions.content = $2
-      order by packages.revision asc
-    |]
+    " select distinct packages.revision \
+    \ from packages \
+    \ inner join package_names \
+    \ on package_names.id = packages.package_name_id \
+    \ inner join versions \
+    \ on versions.id = packages.version_id \
+    \ where package_names.content = $1 \
+    \ and versions.content = $2 \
+    \ order by packages.revision asc "
     (contrazip2
        (contramap fromPackageName encodeText)
        (contramap fromVersion $ encodeList E.int4))

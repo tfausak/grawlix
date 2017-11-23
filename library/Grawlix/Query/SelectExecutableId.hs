@@ -1,5 +1,3 @@
-{-# LANGUAGE QuasiQuotes #-}
-
 module Grawlix.Query.SelectExecutableId
   ( selectExecutableId
   ) where
@@ -16,13 +14,11 @@ selectExecutableId ::
      Query (PackageId, ExecutableNameId, ConditionId) ExecutableId
 selectExecutableId =
   makeQuery
-    [string|
-      select id
-      from executables
-      where package_id = $1
-      and executable_name_id = $2
-      and condition_id = $3
-    |]
+    " select id \
+    \ from executables \
+    \ where package_id = $1 \
+    \ and executable_name_id = $2 \
+    \ and condition_id = $3 "
     (contrazip3
        (contramap fromPackageId encodeInt32)
        (contramap fromExecutableNameId encodeInt32)

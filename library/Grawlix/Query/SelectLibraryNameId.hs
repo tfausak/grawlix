@@ -1,5 +1,3 @@
-{-# LANGUAGE QuasiQuotes #-}
-
 module Grawlix.Query.SelectLibraryNameId
   ( selectLibraryNameId
   ) where
@@ -13,10 +11,8 @@ import qualified Hasql.Decoders as D
 selectLibraryNameId :: Query LibraryName LibraryNameId
 selectLibraryNameId =
   makeQuery
-    [string|
-      select id
-      from library_names
-      where content = $1
-    |]
+    " select id \
+    \ from library_names \
+    \ where content = $1 "
     (contramap fromLibraryName encodeText)
     (toLibraryNameId <$> D.singleRow decodeInt32)

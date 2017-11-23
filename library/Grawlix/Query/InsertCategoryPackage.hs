@@ -1,5 +1,3 @@
-{-# LANGUAGE QuasiQuotes #-}
-
 module Grawlix.Query.InsertCategoryPackage
   ( insertCategoryPackage
   ) where
@@ -11,11 +9,9 @@ import Grawlix.Type.PackageId
 insertCategoryPackage :: Query (CategoryId, PackageId) ()
 insertCategoryPackage =
   makeQuery
-    [string|
-      insert into categories_packages ( category_id, package_id )
-      values ( $1, $2 )
-      on conflict do nothing
-    |]
+    " insert into categories_packages ( category_id, package_id ) \
+    \ values ( $1, $2 ) \
+    \ on conflict do nothing "
     (contrazip2
        (contramap fromCategoryId encodeInt32)
        (contramap fromPackageId encodeInt32))

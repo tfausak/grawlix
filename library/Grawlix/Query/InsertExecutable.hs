@@ -1,5 +1,3 @@
-{-# LANGUAGE QuasiQuotes #-}
-
 module Grawlix.Query.InsertExecutable
   ( insertExecutable
   ) where
@@ -12,11 +10,9 @@ import Grawlix.Type.PackageId
 insertExecutable :: Query (PackageId, ExecutableNameId, ConditionId) ()
 insertExecutable =
   makeQuery
-    [string|
-      insert into executables ( package_id, executable_name_id, condition_id )
-      values ( $1, $2, $3 )
-      on conflict do nothing
-    |]
+    " insert into executables ( package_id, executable_name_id, condition_id ) \
+    \ values ( $1, $2, $3 ) \
+    \ on conflict do nothing "
     (contrazip3
        (contramap fromPackageId encodeInt32)
        (contramap fromExecutableNameId encodeInt32)
