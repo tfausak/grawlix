@@ -1,14 +1,17 @@
 {-# LANGUAGE DataKinds #-}
-{-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE TypeOperators #-}
 
-module Grawlix.Server where
+module Grawlix.Server (main) where
 
 import Flow ((|>))
 import Grawlix.Database
-import Grawlix.Types
+import Grawlix.Handler.GetHealthCheck
+import Grawlix.Handler.GetLibraries
+import Grawlix.Handler.GetModules
+import Grawlix.Handler.GetPackages
+import Grawlix.Handler.GetRevisions
+import Grawlix.Handler.GetVersions
 
-import qualified Control.Monad.IO.Class as IO
 import qualified Hasql.Connection as Sql
 import qualified Network.Wai as Wai
 import qualified Network.Wai.Handler.Warp as Warp
@@ -52,51 +55,6 @@ type Api
   Servant.:<|> GetLibraries
   Servant.:<|> GetModules
 
-type GetHealthCheck
-  = "health-check"
-  Servant.:> Servant.Get '[Servant.JSON] Bool
-
-type GetPackages
-  = "packages"
-  Servant.:> Servant.Get '[Servant.JSON] [PackageName]
-
-type GetVersions
-  = "packages"
-  Servant.:> Servant.Capture "package" PackageName
-  Servant.:> "versions"
-  Servant.:> Servant.Get '[Servant.JSON] [Version]
-
-type GetRevisions
-  = "packages"
-  Servant.:> Servant.Capture "package" PackageName
-  Servant.:> "versions"
-  Servant.:> Servant.Capture "version" Version
-  Servant.:> "revisions"
-  Servant.:> Servant.Get '[Servant.JSON] [Revision]
-
-type GetLibraries
-  = "packages"
-  Servant.:> Servant.Capture "package" PackageName
-  Servant.:> "versions"
-  Servant.:> Servant.Capture "version" Version
-  Servant.:> "revisions"
-  Servant.:> Servant.Capture "revision" Revision
-  Servant.:> "libraries"
-  Servant.:> Servant.Get '[Servant.JSON] [LibraryId]
-
-type GetModules
-  = "packages"
-  Servant.:> Servant.Capture "package" PackageName
-  Servant.:> "versions"
-  Servant.:> Servant.Capture "version" Version
-  Servant.:> "revisions"
-  Servant.:> Servant.Capture "revision" Revision
-  Servant.:> "libraries"
-  Servant.:> Servant.Capture "library" LibraryId
-  Servant.:> "modules"
-  Servant.:> Servant.Get '[Servant.JSON] [ModuleName]
-
-
 serverWith :: Sql.Connection -> Servant.Server Api
 serverWith connection
   = getHealthCheckHandler connection
@@ -105,46 +63,3 @@ serverWith connection
   Servant.:<|> getRevisionsHandler connection
   Servant.:<|> getLibrariesHandler connection
   Servant.:<|> getModulesHandler connection
-
-
-getHealthCheckHandler :: Sql.Connection -> Servant.Handler Bool
-getHealthCheckHandler connection = io (runQuery connection selectTrue ())
-
-
-getPackagesHandler :: Sql.Connection -> Servant.Handler [PackageName]
-getPackagesHandler connection = io (runQuery connection selectPackageNames ())
-
-
-getVersionsHandler :: Sql.Connection -> PackageName -> Servant.Handler [Version]
-getVersionsHandler connection package =
-  io (runQuery connection selectVersions package)
-
-
-getRevisionsHandler :: Sql.Connection -> PackageName -> Version -> Servant.Handler [Revision]
-getRevisionsHandler connection package version =
-  io (runQuery connection selectRevisions (package, version))
-
-
-getLibrariesHandler
-  :: Sql.Connection
-  -> PackageName
-  -> Version
-  -> Revision
-  -> Servant.Handler [LibraryId]
-getLibrariesHandler connection package version revision =
-  io (runQuery connection selectLibraries (package, version, revision))
-
-
-getModulesHandler
-  :: Sql.Connection
-  -> PackageName
-  -> Version
-  -> Revision
-  -> LibraryId
-  -> Servant.Handler [ModuleName]
-getModulesHandler connection package version revision library =
-  io (runQuery connection selectModules (package, version, revision, library))
-
-
-io :: IO a -> Servant.Handler a
-io = IO.liftIO

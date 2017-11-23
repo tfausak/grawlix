@@ -10,7 +10,8 @@ import Grawlix.Type.PackageId
 
 import qualified Hasql.Decoders as D
 
-selectBenchmarkId :: Query (PackageId, BenchmarkNameId, ConditionId) BenchmarkId
+selectBenchmarkId ::
+     Query (PackageId, BenchmarkNameId, ConditionId) BenchmarkId
 selectBenchmarkId =
   makeQuery
     " select id \
