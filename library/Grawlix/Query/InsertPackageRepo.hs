@@ -8,8 +8,6 @@ import Grawlix.Query.Common
 import Grawlix.Type.PackageId
 import Grawlix.Type.RepoId
 
-import qualified Hasql.Decoders as D
-
 insertPackageRepo :: Query (PackageId, RepoId) ()
 insertPackageRepo =
   makeQuery
@@ -21,4 +19,4 @@ insertPackageRepo =
     (contrazip2
        (contramap fromPackageId encodeInt32)
        (contramap fromRepoId encodeInt32))
-    D.unit
+    decodeUnit

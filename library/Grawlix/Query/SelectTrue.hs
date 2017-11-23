@@ -7,7 +7,6 @@ module Grawlix.Query.SelectTrue
 import Grawlix.Query.Common
 
 import qualified Hasql.Decoders as D
-import qualified Hasql.Encoders as E
 
 selectTrue :: Query () Bool
 selectTrue =
@@ -15,5 +14,5 @@ selectTrue =
     [string|
       select true
     |]
-    E.unit
+    encodeUnit
     (D.singleRow $ D.value D.bool)

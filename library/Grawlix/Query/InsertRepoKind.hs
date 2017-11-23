@@ -7,8 +7,6 @@ module Grawlix.Query.InsertRepoKind
 import Grawlix.Query.Common
 import Grawlix.Type.RepoKind
 
-import qualified Hasql.Decoders as D
-
 insertRepoKind :: Query RepoKind ()
 insertRepoKind =
   makeQuery
@@ -18,4 +16,4 @@ insertRepoKind =
       on conflict do nothing
     |]
     (contramap fromRepoKind encodeText)
-    D.unit
+    decodeUnit

@@ -8,8 +8,6 @@ import Grawlix.Query.Common
 import Grawlix.Type.CategoryId
 import Grawlix.Type.PackageId
 
-import qualified Hasql.Decoders as D
-
 insertCategoryPackage :: Query (CategoryId, PackageId) ()
 insertCategoryPackage =
   makeQuery
@@ -21,4 +19,4 @@ insertCategoryPackage =
     (contrazip2
        (contramap fromCategoryId encodeInt32)
        (contramap fromPackageId encodeInt32))
-    D.unit
+    decodeUnit

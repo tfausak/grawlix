@@ -7,8 +7,6 @@ module Grawlix.Query.InsertCategory
 import Grawlix.Query.Common
 import Grawlix.Type.Category
 
-import qualified Hasql.Decoders as D
-
 insertCategory :: Query Category ()
 insertCategory =
   makeQuery
@@ -18,4 +16,4 @@ insertCategory =
       on conflict do nothing
     |]
     (contramap fromCategory encodeText)
-    D.unit
+    decodeUnit

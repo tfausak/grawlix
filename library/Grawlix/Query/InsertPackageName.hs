@@ -7,8 +7,6 @@ module Grawlix.Query.InsertPackageName
 import Grawlix.Query.Common
 import Grawlix.Type.PackageName
 
-import qualified Hasql.Decoders as D
-
 insertPackageName :: Query PackageName ()
 insertPackageName =
   makeQuery
@@ -18,4 +16,4 @@ insertPackageName =
       on conflict do nothing
     |]
     (contramap fromPackageName encodeText)
-    D.unit
+    decodeUnit

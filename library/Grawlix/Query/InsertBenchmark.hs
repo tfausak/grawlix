@@ -9,8 +9,6 @@ import Grawlix.Type.BenchmarkNameId
 import Grawlix.Type.ConditionId
 import Grawlix.Type.PackageId
 
-import qualified Hasql.Decoders as D
-
 insertBenchmark :: Query (PackageId, BenchmarkNameId, ConditionId) ()
 insertBenchmark =
   makeQuery
@@ -23,4 +21,4 @@ insertBenchmark =
        (contramap fromPackageId encodeInt32)
        (contramap fromBenchmarkNameId encodeInt32)
        (contramap fromConditionId encodeInt32))
-    D.unit
+    decodeUnit

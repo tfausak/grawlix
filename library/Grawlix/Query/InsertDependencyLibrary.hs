@@ -8,8 +8,6 @@ import Grawlix.Query.Common
 import Grawlix.Type.DependencyId
 import Grawlix.Type.LibraryId
 
-import qualified Hasql.Decoders as D
-
 insertDependencyLibrary :: Query (DependencyId, LibraryId) ()
 insertDependencyLibrary =
   makeQuery
@@ -21,4 +19,4 @@ insertDependencyLibrary =
     (contrazip2
        (contramap fromDependencyId encodeInt32)
        (contramap fromLibraryId encodeInt32))
-    D.unit
+    decodeUnit

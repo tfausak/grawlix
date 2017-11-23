@@ -7,8 +7,6 @@ module Grawlix.Query.InsertCondition
 import Grawlix.Query.Common
 import Grawlix.Type.Condition
 
-import qualified Hasql.Decoders as D
-
 insertCondition :: Query Condition ()
 insertCondition =
   makeQuery
@@ -18,4 +16,4 @@ insertCondition =
       on conflict do nothing
     |]
     (contramap fromCondition encodeText)
-    D.unit
+    decodeUnit

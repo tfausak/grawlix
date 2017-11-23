@@ -8,8 +8,6 @@ import Grawlix.Query.Common
 import Grawlix.Type.DependencyId
 import Grawlix.Type.TestId
 
-import qualified Hasql.Decoders as D
-
 insertDependencyTest :: Query (DependencyId, TestId) ()
 insertDependencyTest =
   makeQuery
@@ -21,4 +19,4 @@ insertDependencyTest =
     (contrazip2
        (contramap fromDependencyId encodeInt32)
        (contramap fromTestId encodeInt32))
-    D.unit
+    decodeUnit

@@ -7,8 +7,6 @@ module Grawlix.Query.InsertLibraryName
 import Grawlix.Query.Common
 import Grawlix.Type.LibraryName
 
-import qualified Hasql.Decoders as D
-
 insertLibraryName :: Query LibraryName ()
 insertLibraryName =
   makeQuery
@@ -18,4 +16,4 @@ insertLibraryName =
       on conflict do nothing
     |]
     (contramap fromLibraryName encodeText)
-    D.unit
+    decodeUnit

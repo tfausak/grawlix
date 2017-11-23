@@ -9,8 +9,6 @@ import Grawlix.Type.RepoKindId
 import Grawlix.Type.RepoTypeId
 import Grawlix.Type.RepoUrl
 
-import qualified Hasql.Decoders as D
-
 insertRepo :: Query (RepoKindId, RepoTypeId, RepoUrl) ()
 insertRepo =
   makeQuery
@@ -23,4 +21,4 @@ insertRepo =
        (contramap fromRepoKindId encodeInt32)
        (contramap fromRepoTypeId encodeInt32)
        (contramap fromRepoUrl encodeText))
-    D.unit
+    decodeUnit

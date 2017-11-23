@@ -7,8 +7,6 @@ module Grawlix.Query.InsertConstraint
 import Grawlix.Query.Common
 import Grawlix.Type.Constraint
 
-import qualified Hasql.Decoders as D
-
 insertConstraint :: Query Constraint ()
 insertConstraint =
   makeQuery
@@ -18,4 +16,4 @@ insertConstraint =
       on conflict do nothing
     |]
     (contramap fromConstraint encodeText)
-    D.unit
+    decodeUnit

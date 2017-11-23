@@ -8,8 +8,6 @@ import Grawlix.Query.Common
 import Grawlix.Type.BenchmarkId
 import Grawlix.Type.DependencyId
 
-import qualified Hasql.Decoders as D
-
 insertDependencyBenchmark :: Query (DependencyId, BenchmarkId) ()
 insertDependencyBenchmark =
   makeQuery
@@ -21,4 +19,4 @@ insertDependencyBenchmark =
     (contrazip2
        (contramap fromDependencyId encodeInt32)
        (contramap fromBenchmarkId encodeInt32))
-    D.unit
+    decodeUnit

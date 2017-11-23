@@ -7,7 +7,6 @@ module Grawlix.Query.InsertVersion
 import Grawlix.Query.Common
 import Grawlix.Type.Version
 
-import qualified Hasql.Decoders as D
 import qualified Hasql.Encoders as E
 
 insertVersion :: Query Version ()
@@ -19,4 +18,4 @@ insertVersion =
       on conflict do nothing
     |]
     (contramap fromVersion $ encodeList E.int4)
-    D.unit
+    decodeUnit

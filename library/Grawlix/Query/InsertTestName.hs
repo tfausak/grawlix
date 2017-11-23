@@ -7,8 +7,6 @@ module Grawlix.Query.InsertTestName
 import Grawlix.Query.Common
 import Grawlix.Type.TestName
 
-import qualified Hasql.Decoders as D
-
 insertTestName :: Query TestName ()
 insertTestName =
   makeQuery
@@ -18,4 +16,4 @@ insertTestName =
       on conflict do nothing
     |]
     (contramap fromTestName encodeText)
-    D.unit
+    decodeUnit

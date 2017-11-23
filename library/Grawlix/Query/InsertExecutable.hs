@@ -9,8 +9,6 @@ import Grawlix.Type.ConditionId
 import Grawlix.Type.ExecutableNameId
 import Grawlix.Type.PackageId
 
-import qualified Hasql.Decoders as D
-
 insertExecutable :: Query (PackageId, ExecutableNameId, ConditionId) ()
 insertExecutable =
   makeQuery
@@ -23,4 +21,4 @@ insertExecutable =
        (contramap fromPackageId encodeInt32)
        (contramap fromExecutableNameId encodeInt32)
        (contramap fromConditionId encodeInt32))
-    D.unit
+    decodeUnit

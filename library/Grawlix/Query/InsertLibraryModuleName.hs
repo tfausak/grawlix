@@ -8,8 +8,6 @@ import Grawlix.Query.Common
 import Grawlix.Type.LibraryId
 import Grawlix.Type.ModuleNameId
 
-import qualified Hasql.Decoders as D
-
 insertLibraryModuleName :: Query (LibraryId, ModuleNameId) ()
 insertLibraryModuleName =
   makeQuery
@@ -21,4 +19,4 @@ insertLibraryModuleName =
     (contrazip2
        (contramap fromLibraryId encodeInt32)
        (contramap fromModuleNameId encodeInt32))
-    D.unit
+    decodeUnit

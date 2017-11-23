@@ -9,8 +9,6 @@ import Grawlix.Type.ConditionId
 import Grawlix.Type.LibraryNameId
 import Grawlix.Type.PackageId
 
-import qualified Hasql.Decoders as D
-
 insertLibrary :: Query (PackageId, LibraryNameId, ConditionId) ()
 insertLibrary =
   makeQuery
@@ -23,4 +21,4 @@ insertLibrary =
        (contramap fromPackageId encodeInt32)
        (contramap fromLibraryNameId encodeInt32)
        (contramap fromConditionId encodeInt32))
-    D.unit
+    decodeUnit

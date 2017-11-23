@@ -7,7 +7,6 @@ module Grawlix.Query.InsertModuleName
 import Grawlix.Query.Common
 import Grawlix.Type.ModuleName
 
-import qualified Hasql.Decoders as D
 import qualified Hasql.Encoders as E
 
 insertModuleName :: Query ModuleName ()
@@ -19,4 +18,4 @@ insertModuleName =
       on conflict do nothing
     |]
     (contramap fromModuleName $ encodeList E.text)
-    D.unit
+    decodeUnit

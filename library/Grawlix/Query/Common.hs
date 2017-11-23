@@ -10,9 +10,11 @@ module Grawlix.Query.Common
   , decodeInt32
   , decodeList
   , decodeText
+  , decodeUnit
   , encodeInt32
   , encodeList
   , encodeText
+  , encodeUnit
   , makeQuery
   , string
   ) where
@@ -45,6 +47,9 @@ decodeList = D.value . D.array . D.arrayDimension replicateM . D.arrayValue
 decodeText :: D.Row Text
 decodeText = D.value D.text
 
+decodeUnit :: D.Result ()
+decodeUnit = D.unit
+
 encodeInt32 :: E.Params Int32
 encodeInt32 = E.value E.int4
 
@@ -53,6 +58,9 @@ encodeList = E.value . E.array . E.arrayDimension foldl . E.arrayValue
 
 encodeText :: E.Params Text
 encodeText = E.value E.text
+
+encodeUnit :: E.Params ()
+encodeUnit = E.unit
 
 makeQuery :: String -> E.Params a -> D.Result b -> Query a b
 makeQuery query params result =

@@ -7,8 +7,6 @@ module Grawlix.Query.InsertExecutableName
 import Grawlix.Query.Common
 import Grawlix.Type.ExecutableName
 
-import qualified Hasql.Decoders as D
-
 insertExecutableName :: Query ExecutableName ()
 insertExecutableName =
   makeQuery
@@ -18,4 +16,4 @@ insertExecutableName =
       on conflict do nothing
     |]
     (contramap fromExecutableName encodeText)
-    D.unit
+    decodeUnit

@@ -7,8 +7,6 @@ module Grawlix.Query.InsertLicense
 import Grawlix.Query.Common
 import Grawlix.Type.License
 
-import qualified Hasql.Decoders as D
-
 insertLicense :: Query License ()
 insertLicense =
   makeQuery
@@ -18,4 +16,4 @@ insertLicense =
       on conflict do nothing
     |]
     (contramap fromLicense encodeText)
-    D.unit
+    decodeUnit

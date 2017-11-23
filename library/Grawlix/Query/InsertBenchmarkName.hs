@@ -7,8 +7,6 @@ module Grawlix.Query.InsertBenchmarkName
 import Grawlix.Query.Common
 import Grawlix.Type.BenchmarkName
 
-import qualified Hasql.Decoders as D
-
 insertBenchmarkName :: Query BenchmarkName ()
 insertBenchmarkName =
   makeQuery
@@ -18,4 +16,4 @@ insertBenchmarkName =
       on conflict do nothing
     |]
     (contramap fromBenchmarkName encodeText)
-    D.unit
+    decodeUnit

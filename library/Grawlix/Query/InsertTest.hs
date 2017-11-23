@@ -9,8 +9,6 @@ import Grawlix.Type.ConditionId
 import Grawlix.Type.PackageId
 import Grawlix.Type.TestNameId
 
-import qualified Hasql.Decoders as D
-
 insertTest :: Query (PackageId, TestNameId, ConditionId) ()
 insertTest =
   makeQuery
@@ -23,4 +21,4 @@ insertTest =
        (contramap fromPackageId encodeInt32)
        (contramap fromTestNameId encodeInt32)
        (contramap fromConditionId encodeInt32))
-    D.unit
+    decodeUnit

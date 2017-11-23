@@ -8,8 +8,6 @@ import Grawlix.Query.Common
 import Grawlix.Type.DependencyId
 import Grawlix.Type.ExecutableId
 
-import qualified Hasql.Decoders as D
-
 insertDependencyExecutable :: Query (DependencyId, ExecutableId) ()
 insertDependencyExecutable =
   makeQuery
@@ -21,4 +19,4 @@ insertDependencyExecutable =
     (contrazip2
        (contramap fromDependencyId encodeInt32)
        (contramap fromExecutableId encodeInt32))
-    D.unit
+    decodeUnit

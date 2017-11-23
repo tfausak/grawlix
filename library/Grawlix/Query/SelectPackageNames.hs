@@ -8,7 +8,6 @@ import Grawlix.Query.Common
 import Grawlix.Type.PackageName
 
 import qualified Hasql.Decoders as D
-import qualified Hasql.Encoders as E
 
 selectPackageNames :: Query () [PackageName]
 selectPackageNames =
@@ -18,5 +17,5 @@ selectPackageNames =
       from package_names
       order by content asc
     |]
-    E.unit
+    encodeUnit
     (map toPackageName <$> D.rowsList decodeText)

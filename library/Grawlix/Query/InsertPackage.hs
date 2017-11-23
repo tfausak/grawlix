@@ -13,7 +13,6 @@ import Grawlix.Type.Revision
 import Grawlix.Type.Synopsis
 import Grawlix.Type.Version
 
-import qualified Hasql.Decoders as D
 import qualified Hasql.Encoders as E
 
 insertPackage ::
@@ -53,4 +52,4 @@ insertPackage =
        (contramap fromSynopsis encodeText)
        (contramap fromDescription encodeText)
        (contramap fromPackageUrl encodeText))
-    D.unit
+    decodeUnit
