@@ -57,21 +57,11 @@ library:
   source-dirs: library
 
 executables:
-
-  grawlix-server:
+  grawlix:
     dependencies:
       - grawlix
     ghc-options:
       - -rtsopts
       - -threaded
     source-dirs: executables
-    main: grawlix-server.hs
-
-  grawlix-sync:
-    dependencies:
-      - grawlix
-    ghc-options:
-      - -rtsopts
-      - -threaded
-    source-dirs: executables
-    main: grawlix-sync.hs
+    main: Main.hs

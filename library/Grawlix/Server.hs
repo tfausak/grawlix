@@ -1,18 +1,15 @@
 {-# LANGUAGE TypeOperators #-}
 
 module Grawlix.Server
-  ( main
+  ( runServer
   ) where
 
-import Grawlix.Config
-import Grawlix.Database
 import Grawlix.Handler.GetHealthCheck
 import Grawlix.Handler.GetLibraries
 import Grawlix.Handler.GetModules
 import Grawlix.Handler.GetPackages
 import Grawlix.Handler.GetRevisions
 import Grawlix.Handler.GetVersions
-import Grawlix.Options
 import Servant ((:<|>)((:<|>)))
 
 import qualified Hasql.Connection as Sql
@@ -21,13 +18,6 @@ import qualified Network.Wai.Handler.Warp as Warp
 import qualified Network.Wai.Middleware.Gzip as Middleware
 import qualified Network.Wai.Middleware.RequestLogger as Middleware
 import qualified Servant
-
-main :: IO ()
-main = do
-  options <- getOptions
-  config <- getConfig options
-  connection <- getConnection config
-  runServer connection
 
 runServer :: Sql.Connection -> IO ()
 runServer = Warp.runSettings settings . applyMiddleware . makeApplication

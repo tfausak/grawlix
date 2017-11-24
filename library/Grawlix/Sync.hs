@@ -2,13 +2,11 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 
 module Grawlix.Sync
-  ( main
+  ( runSync
   ) where
 
 import Flow ((|>))
-import Grawlix.Config
 import Grawlix.Database
-import Grawlix.Options
 import Grawlix.Query.InsertBenchmark
 import Grawlix.Query.InsertBenchmarkName
 import Grawlix.Query.InsertCategory
@@ -132,11 +130,8 @@ import qualified System.IO as IO
 import qualified Text.Printf as Printf
 import qualified Text.Read as Read
 
-main :: IO ()
-main = do
-  options <- getOptions
-  config <- getConfig options
-  connection <- getConnection config
+runSync :: Sql.Connection -> IO ()
+runSync connection = do
   migrations <- Sql.loadMigrationsFromDirectory "migrations"
   migrations |> (Sql.MigrationInitialization :) |>
     mapM_ (runMigration connection)
