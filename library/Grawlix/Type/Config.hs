@@ -17,6 +17,8 @@ data Config = Config
   , configIndexUrl :: String
   , configMigrationDirectory :: FilePath
   , configPostgresUri :: Text
+  , configRunServer :: Bool
+  , configRunSync :: Bool
   } deriving (Eq, Generic, Show)
 
 instance FromJSON Config where
@@ -25,7 +27,9 @@ instance FromJSON Config where
       Config <$> getWithDefault object "cache-directory" configCacheDirectory <*>
       getWithDefault object "index-url" configIndexUrl <*>
       getWithDefault object "migration-directory" configMigrationDirectory <*>
-      getWithDefault object "postgres-uri" configPostgresUri
+      getWithDefault object "postgres-uri" configPostgresUri <*>
+      getWithDefault object "run-server" configRunServer <*>
+      getWithDefault object "run-sync" configRunSync
 
 getWithDefault ::
      FromJSON a => Json.Object -> String -> (Config -> a) -> Json.Parser a
@@ -39,4 +43,6 @@ defaultConfig =
   , configIndexUrl = "https://hackage.haskell.org/01-index.tar.gz"
   , configMigrationDirectory = "migrations"
   , configPostgresUri = Text.empty
+  , configRunServer = True
+  , configRunSync = True
   }
