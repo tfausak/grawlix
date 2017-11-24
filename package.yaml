@@ -42,6 +42,7 @@ library:
     - http-client
     - http-client-tls
     - http-types
+    - optparse-generic
     - servant
     - servant-server
     - tagged
@@ -51,6 +52,7 @@ library:
     - wai
     - wai-extra
     - warp
+    - yaml
     - zlib
   source-dirs: library
 

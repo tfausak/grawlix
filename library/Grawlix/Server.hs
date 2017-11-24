@@ -4,6 +4,7 @@ module Grawlix.Server
   ( main
   ) where
 
+import Grawlix.Config
 import Grawlix.Database
 import Grawlix.Handler.GetHealthCheck
 import Grawlix.Handler.GetLibraries
@@ -11,6 +12,7 @@ import Grawlix.Handler.GetModules
 import Grawlix.Handler.GetPackages
 import Grawlix.Handler.GetRevisions
 import Grawlix.Handler.GetVersions
+import Grawlix.Options
 import Servant ((:<|>)((:<|>)))
 
 import qualified Hasql.Connection as Sql
@@ -22,7 +24,9 @@ import qualified Servant
 
 main :: IO ()
 main = do
-  connection <- getConnection
+  options <- getOptions
+  config <- getConfig options
+  connection <- getConnection config
   runServer connection
 
 runServer :: Sql.Connection -> IO ()

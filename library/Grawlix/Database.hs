@@ -5,21 +5,18 @@ module Grawlix.Database
   ) where
 
 import Grawlix.Query.Common
+import Grawlix.Type.Config
 
-import qualified Data.Maybe as Maybe
-import qualified Data.Text as Text
 import qualified Data.Text.Encoding as Text
 import qualified Hasql.Connection as Sql
 import qualified Hasql.Migration as Sql
 import qualified Hasql.Session as Sql
 import qualified Hasql.Transaction as Sql.Transaction
 import qualified Hasql.Transaction.Sessions as Sql
-import qualified System.Environment as Environment
 
-getConnection :: IO Sql.Connection
-getConnection = do
-  db <- Environment.lookupEnv "DATABASE"
-  result <- Sql.acquire . Text.encodeUtf8 . Text.pack $ Maybe.fromMaybe "" db
+getConnection :: Config -> IO Sql.Connection
+getConnection config = do
+  result <- Sql.acquire . Text.encodeUtf8 $ configPostgresUri config
   case result of
     Left problem -> fail $ show problem
     Right connection -> pure connection

@@ -6,7 +6,9 @@ module Grawlix.Sync
   ) where
 
 import Flow ((|>))
+import Grawlix.Config
 import Grawlix.Database
+import Grawlix.Options
 import Grawlix.Query.InsertBenchmark
 import Grawlix.Query.InsertBenchmarkName
 import Grawlix.Query.InsertCategory
@@ -132,7 +134,9 @@ import qualified Text.Read as Read
 
 main :: IO ()
 main = do
-  connection <- getConnection
+  options <- getOptions
+  config <- getConfig options
+  connection <- getConnection config
   migrations <- Sql.loadMigrationsFromDirectory "migrations"
   migrations |> (Sql.MigrationInitialization :) |>
     mapM_ (runMigration connection)
