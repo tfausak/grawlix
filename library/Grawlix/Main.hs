@@ -16,5 +16,5 @@ main = do
   options <- getOptions
   config <- getConfig options
   connection <- getConnection config
-  Monad.when (configRunSync config) (runSync connection)
+  Monad.when (configRunSync config) (runSync config connection)
   Monad.when (configRunServer config) (runServer connection)

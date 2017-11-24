@@ -58,6 +58,7 @@ import Grawlix.Type.Benchmarks
 import Grawlix.Type.Categories
 import Grawlix.Type.Category
 import Grawlix.Type.Condition
+import Grawlix.Type.Config
 import Grawlix.Type.Constraint
 import Grawlix.Type.Dependencies
 import Grawlix.Type.Dependency
@@ -130,15 +131,18 @@ import qualified System.IO as IO
 import qualified Text.Printf as Printf
 import qualified Text.Read as Read
 
-runSync :: Sql.Connection -> IO ()
-runSync connection = do
-  migrations <- Sql.loadMigrationsFromDirectory "migrations"
+runSync :: Config -> Sql.Connection -> IO ()
+runSync config connection = do
+  migrations <-
+    Sql.loadMigrationsFromDirectory $ configMigrationDirectory config
   migrations |> (Sql.MigrationInitialization :) |>
     mapM_ (runMigration connection)
   manager <- Client.newTlsManager
-  md5 <- getLatestIndexMd5 manager
+  md5 <- getLatestIndexMd5 (configIndexUrl config) manager
   let file = Path.addExtension md5 "tgz"
-  index <- manager |> getLatestIndex |> getCached file
+  index <-
+    getCached (configCacheDirectory config) file $
+    getLatestIndex (configIndexUrl config) manager
   index |> Gzip.decompress |> Tar.read |> fromEntries |> filter isCabal |>
     Maybe.mapMaybe
       (\entry ->
@@ -770,41 +774,39 @@ getEntryContents entry =
 isCabal :: Tar.Entry -> Bool
 isCabal = (== ".cabal") . Path.takeExtension . Tar.entryPath
 
-getCached :: FilePath -> IO LazyBytes.ByteString -> IO LazyBytes.ByteString
-getCached file miss = do
+getCached ::
+     FilePath -> FilePath -> IO LazyBytes.ByteString -> IO LazyBytes.ByteString
+getCached cacheDirectory file miss = do
   let path = Path.combine cacheDirectory file
-  Exception.catch (LazyBytes.readFile path) (handleCacheMiss miss path)
+  Exception.catch
+    (LazyBytes.readFile path)
+    (handleCacheMiss cacheDirectory miss path)
 
 handleCacheMiss ::
-     IO LazyBytes.ByteString
+     FilePath
+  -> IO LazyBytes.ByteString
   -> FilePath
   -> Exception.IOException
   -> IO LazyBytes.ByteString
-handleCacheMiss miss path exception = do
+handleCacheMiss cacheDirectory miss path exception = do
   IO.hPrint IO.stderr exception
   contents <- miss
   Directory.createDirectoryIfMissing True cacheDirectory
   LazyBytes.writeFile path contents
   pure contents
 
-cacheDirectory :: FilePath
-cacheDirectory = Path.combine "data" "cache"
-
-getLatestIndex :: Client.Manager -> IO LazyBytes.ByteString
-getLatestIndex manager = do
+getLatestIndex :: String -> Client.Manager -> IO LazyBytes.ByteString
+getLatestIndex indexUrl manager = do
   request <- Client.parseRequest indexUrl
   response <- Client.httpLbs request manager
   pure $ Client.responseBody response
 
-getLatestIndexMd5 :: Client.Manager -> IO String
-getLatestIndexMd5 manager = do
+getLatestIndexMd5 :: String -> Client.Manager -> IO String
+getLatestIndexMd5 indexUrl manager = do
   request <- Client.parseRequest indexUrl
   response <-
     Client.httpNoBody request {Client.method = Http.methodHead} manager
   getContentMd5 response
-
-indexUrl :: String
-indexUrl = "https://hackage.haskell.org/01-index.tar.gz"
 
 getContentMd5 :: Catch.MonadThrow m => Client.Response body -> m String
 getContentMd5 response = do
