@@ -42,8 +42,10 @@ library:
     - http-client
     - http-client-tls
     - http-types
+    - lucid
     - optparse-generic
     - servant
+    - servant-lucid
     - servant-server
     - tagged
     - tar

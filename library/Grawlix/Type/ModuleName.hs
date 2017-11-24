@@ -8,9 +8,18 @@ module Grawlix.Type.ModuleName
 
 import Grawlix.Type.Common
 
+import qualified Data.Text as Text
+import qualified Distribution.ModuleName as Cabal
+import qualified Distribution.Text as Cabal
+
 newtype ModuleName =
   ModuleName [Text]
   deriving (Eq, Ord, Show, ToJSON)
+
+instance FromHttpApiData ModuleName where
+  parseUrlPiece =
+    fmap (toModuleName . map Text.pack . Cabal.components) .
+    maybe (fail "invalid module name") pure . Cabal.simpleParse . Text.unpack
 
 toModuleName :: [Text] -> ModuleName
 toModuleName = ModuleName

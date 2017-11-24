@@ -4,6 +4,7 @@ module Grawlix.Server
   ( runServer
   ) where
 
+import Grawlix.Handler.GetHaddock
 import Grawlix.Handler.GetHealthCheck
 import Grawlix.Handler.GetLibraries
 import Grawlix.Handler.GetModules
@@ -43,6 +44,7 @@ type Api
      :<|> GetRevisions
      :<|> GetLibraries
      :<|> GetModules
+     :<|> GetHaddock
 
 makeServer :: Sql.Connection -> Servant.Server Api
 makeServer connection =
@@ -51,4 +53,5 @@ makeServer connection =
   getVersionsHandler connection :<|>
   getRevisionsHandler connection :<|>
   getLibrariesHandler connection :<|>
-  getModulesHandler connection
+  getModulesHandler connection :<|>
+  getHaddockHandler
