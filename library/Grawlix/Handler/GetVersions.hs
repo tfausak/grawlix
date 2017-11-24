@@ -19,4 +19,4 @@ type GetVersions
 
 getVersionsHandler :: Connection -> PackageName -> Handler [Version]
 getVersionsHandler connection package =
-  liftIO (runQuery connection selectVersions package)
+  liftIO $ runQuery connection selectVersions package

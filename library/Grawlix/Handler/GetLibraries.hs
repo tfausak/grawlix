@@ -26,4 +26,4 @@ type GetLibraries
 getLibrariesHandler ::
      Connection -> PackageName -> Version -> Revision -> Handler [LibraryId]
 getLibrariesHandler connection package version revision =
-  liftIO (runQuery connection selectLibraries (package, version, revision))
+  liftIO $ runQuery connection selectLibraries (package, version, revision)

@@ -23,4 +23,4 @@ type GetRevisions
 getRevisionsHandler ::
      Connection -> PackageName -> Version -> Handler [Revision]
 getRevisionsHandler connection package version =
-  liftIO (runQuery connection selectRevisions (package, version))
+  liftIO $ runQuery connection selectRevisions (package, version)

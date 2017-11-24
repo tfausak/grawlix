@@ -34,5 +34,5 @@ getModulesHandler ::
   -> LibraryId
   -> Handler [ModuleName]
 getModulesHandler connection package version revision library =
-  liftIO
-    (runQuery connection selectModules (package, version, revision, library))
+  liftIO $
+  runQuery connection selectModules (package, version, revision, library)

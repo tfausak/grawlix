@@ -14,4 +14,4 @@ type GetHealthCheck
      :> Get '[ JSON] Bool
 
 getHealthCheckHandler :: Connection -> Handler Bool
-getHealthCheckHandler connection = liftIO (runQuery connection selectTrue ())
+getHealthCheckHandler connection = liftIO $ runQuery connection selectTrue ()

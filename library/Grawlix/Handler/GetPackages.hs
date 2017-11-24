@@ -16,4 +16,4 @@ type GetPackages
 
 getPackagesHandler :: Connection -> Handler [PackageName]
 getPackagesHandler connection =
-  liftIO (runQuery connection selectPackageNames ())
+  liftIO $ runQuery connection selectPackageNames ()
