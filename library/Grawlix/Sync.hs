@@ -121,7 +121,6 @@ import qualified Distribution.Types.CondTree as Cabal
 import qualified Distribution.Types.UnqualComponentName as Cabal
 import qualified Distribution.Version as Cabal
 import qualified Hasql.Connection as Sql
-import qualified Hasql.Migration as Sql
 import qualified Network.HTTP.Client as Client
 import qualified Network.HTTP.Client.TLS as Client
 import qualified Network.HTTP.Types as Http
@@ -133,10 +132,6 @@ import qualified Text.Read as Read
 
 runSync :: Config -> Sql.Connection -> IO ()
 runSync config connection = do
-  migrations <-
-    Sql.loadMigrationsFromDirectory $ configMigrationDirectory config
-  migrations |> (Sql.MigrationInitialization :) |>
-    mapM_ (runMigration connection)
   manager <- Client.newTlsManager
   md5 <- getLatestIndexMd5 (configIndexUrl config) manager
   let file = Path.addExtension md5 "tgz"

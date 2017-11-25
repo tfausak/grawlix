@@ -1,6 +1,6 @@
 module Grawlix.Database
   ( getConnection
-  , runMigration
+  , runMigrations
   , runQuery
   ) where
 
@@ -20,6 +20,15 @@ getConnection config = do
   case result of
     Left problem -> fail $ show problem
     Right connection -> pure connection
+
+runMigrations :: Config -> Sql.Connection -> IO ()
+runMigrations config connection = do
+  runMigration connection Sql.MigrationInitialization
+  migrations <- getMigrations config
+  mapM_ (runMigration connection) migrations
+
+getMigrations :: Config -> IO [Sql.MigrationCommand]
+getMigrations = Sql.loadMigrationsFromDirectory . configMigrationDirectory
 
 runMigration :: Sql.Connection -> Sql.MigrationCommand -> IO ()
 runMigration connection migration = do
