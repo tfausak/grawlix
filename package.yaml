@@ -24,6 +24,7 @@ ghc-options:
 library:
   dependencies:
     - aeson
+    - async
     - base16-bytestring
     - base64-bytestring
     - bytestring
