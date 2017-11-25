@@ -17,5 +17,5 @@ main = do
   config <- getConfig options
   connection <- getConnection config
   runMigrations config connection
-  Monad.when (configRunSync config) (runSync config connection)
-  Monad.when (configRunServer config) (runServer connection)
+  Monad.when (configSyncEnabled config) (runSync config connection)
+  Monad.when (configServerEnabled config) (runServer connection)
