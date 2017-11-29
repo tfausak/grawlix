@@ -10,6 +10,7 @@ import Grawlix.Type.Common
 import qualified Data.Aeson as Json
 import qualified Data.Aeson.Types as Json
 import qualified Data.Text as Text
+import qualified Data.Time as Time
 import qualified System.FilePath as Path
 
 data Config = Config
@@ -18,6 +19,7 @@ data Config = Config
   , configMigrationDirectory :: FilePath
   , configPostgresUri :: Text
   , configServerEnabled :: Bool
+  , configSyncDelay :: Time.DiffTime
   , configSyncEnabled :: Bool
   } deriving (Eq, Generic, Show)
 
@@ -29,6 +31,7 @@ instance FromJSON Config where
       getWithDefault object "migration-directory" configMigrationDirectory <*>
       getWithDefault object "postgres-uri" configPostgresUri <*>
       getWithDefault object "server-enabled" configServerEnabled <*>
+      getWithDefault object "sync-delay" configSyncDelay <*>
       getWithDefault object "sync-enabled" configSyncEnabled
 
 getWithDefault ::
@@ -44,5 +47,6 @@ defaultConfig =
   , configMigrationDirectory = "migrations"
   , configPostgresUri = Text.empty
   , configServerEnabled = True
+  , configSyncDelay = Time.secondsToDiffTime 60
   , configSyncEnabled = True
   }

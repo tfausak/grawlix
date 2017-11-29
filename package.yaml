@@ -52,6 +52,7 @@ library:
     - tar
     - template-haskell
     - text
+    - time
     - wai
     - wai-extra
     - warp
