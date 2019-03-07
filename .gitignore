@@ -1,8 +1,0 @@
-.stack-work/
-*.cabal
-*.hi
-*.hp
-*.o
-*.prof
-*.tix
-data/
