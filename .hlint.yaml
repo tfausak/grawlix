@@ -1,0 +1,28 @@
+- extensions:
+  - default: false
+
+- flags:
+  - default: false
+
+- group: { name: dollar, enabled: true }
+
+- group: { name: generalise, enabled: true }
+
+- modules:
+  - default: false
+  - { name: Control.Monad.Trans.Maybe, as: MaybeT }
+  - { name: Data.ByteString, as: ByteString }
+  - { name: Data.List, as: List }
+  - { name: Data.Maybe, as: Maybe }
+  - { name: Data.Text, as: Text }
+  - { name: Data.Text.Encoding, as: Encoding }
+  - { name: Data.Version, as: Version }
+  - { name: Grawlix }
+  - { name: Grawlix.Main }
+  - { name: Grawlix.Version }
+  - { name: Language.Haskell.Brittany, as: Brittany }
+  - { name: Language.Haskell.HLint3, as: Hlint }
+  - { name: Paths_grawlix, as: Package }
+  - { name: System.Directory, as: Directory }
+  - { name: System.FilePath, as: FilePath }
+  - { name: Test.Hspec, as: Hspec }
