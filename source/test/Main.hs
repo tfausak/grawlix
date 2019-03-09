@@ -7,6 +7,7 @@ where
 
 import qualified Control.Monad.Trans.Maybe as MaybeT
 import qualified Data.ByteString as ByteString
+import qualified Data.Function as Function
 import qualified Data.List as List
 import qualified Data.Maybe as Maybe
 import qualified Data.Text as Text
@@ -87,7 +88,7 @@ checkFormatting config file = Hspec.it file $ do
   actual <- either (fail . show) pure $ Encoding.decodeUtf8' byteString
   result <- Brittany.parsePrintModule config actual
   expected <- either (fail . unlines . fmap showBrittanyError) pure result
-  normalizeNewlines actual `Hspec.shouldBe` expected
+  Function.on Hspec.shouldBe normalizeNewlines actual expected
 
 showBrittanyError :: Brittany.BrittanyError -> String
 showBrittanyError brittanyError = case brittanyError of

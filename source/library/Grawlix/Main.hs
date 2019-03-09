@@ -5,7 +5,9 @@ where
 
 import qualified Codec.Archive.Tar as Tar
 import qualified Codec.Compression.Zlib.Internal as Zlib
-import qualified Control.Exception as Exception
+import qualified Control.Concurrent as Concurrent
+import qualified Control.Concurrent.STM as Stm
+import qualified Control.Monad as Monad
 import qualified Data.ByteString as ByteString
 import qualified Data.ByteString.Lazy as LazyByteString
 import qualified Data.Maybe as Maybe
@@ -21,75 +23,48 @@ import qualified Network.HTTP.Client.TLS as Tls
 import qualified Network.HTTP.Types as Http
 import qualified Network.HTTP.Types.Header as Http
 import qualified System.FilePath as FilePath
-import qualified System.IO as IO
 
 defaultMain :: IO ()
 defaultMain = do
   manager <- Tls.newTlsManager
-  -- TODO: I don't think I actually need a cache here. Once the index with a
-  -- particular ETag has been processed, there's no need to process it again.
-  -- Simply hanging on to the ETag and checking for 304 responses should be
-  -- enough. In other words, if the response is 304, do nothing; otherwise
-  -- download the new index and process it.
-  result <- getIndex
-    (\_ -> pure Nothing)
-    (\_ _ -> pure ())
-    Client.parseRequest
-    (flip Client.httpLbs manager)
-    Nothing
-  body <- either (fail . show) (pure . snd) result
-  archive <- either Exception.throwIO pure $ decompress body
-  mapM_ output
-    . fmap (parsePackage . toIndexEntry)
-    . Tar.foldEntries (prepend . Right) [] (singleton . Left)
-    $ Tar.read archive
+  entityTagVar <- Stm.newTVarIO Nothing
+  Monad.forever $ do
+    putStrLn "Getting package index ..."
+    initialRequest <- Client.parseRequest
+      "https://hackage.haskell.org/01-index.tar.gz"
+    maybeEntityTag <- Stm.readTVarIO entityTagVar
+    let
+      request = case maybeEntityTag of
+        Nothing -> initialRequest
+        Just entityTag -> initialRequest
+          { Client.requestHeaders =
+            [(Http.hIfNoneMatch, unwrapEntityTag entityTag)]
+          }
+    response <- Client.httpLbs request manager
+    case Http.statusCode $ Client.responseStatus response of
+      304 -> putStrLn "Package index has not changed."
+      200 -> do
+        putStrLn "Processing new package index ..."
+        case
+            fmap EntityTag . lookup Http.hETag $ Client.responseHeaders
+              response
+          of
+            Nothing -> pure ()
+            Just entityTag ->
+              Stm.atomically . Stm.writeTVar entityTagVar $ Just entityTag
+        case decompress $ Client.responseBody response of
+          Left decompressError -> print decompressError
+          Right archive ->
+            mapM_ output
+              . fmap (parsePackage . toIndexEntry)
+              . Tar.foldEntries (prepend . Right) [] (singleton . Left)
+              $ Tar.read archive
+        putStrLn "Done processing package index."
+      _ -> print response
+    Concurrent.threadDelay $ 60 * 1000000
 
-type Response = Client.Response LazyByteString.ByteString
-
-getIndex
-  :: Monad m
-  => (ETag -> m (Maybe LazyByteString.ByteString))
-  -> (ETag -> LazyByteString.ByteString -> m ())
-  -> (String -> m Client.Request)
-  -> (Client.Request -> m Response)
-  -> Maybe ETag
-  -> m (Either Response (ETag, LazyByteString.ByteString))
-getIndex getCache putCache parseRequest performRequest maybeETag = do
-  request <- parseRequest "https://hackage.haskell.org/01-index.tar.gz"
-  case maybeETag of
-    Nothing -> do
-      response <- performRequest request
-      case Http.statusCode $ Client.responseStatus response of
-        200 -> getIndexWithoutCache putCache response
-        _ -> pure $ Left response
-    Just etag -> do
-      response <- performRequest request
-        { Client.requestHeaders = [(Http.hIfNoneMatch, unwrapETag etag)]
-        }
-      case Http.statusCode $ Client.responseStatus response of
-        200 -> getIndexWithoutCache putCache response
-        304 -> do
-          result <- getCache etag
-          case result of
-            Nothing -> getIndexWithoutCache putCache response
-            Just body -> pure $ Right (etag, body)
-        _ -> pure $ Left response
-
-getIndexWithoutCache
-  :: Monad m
-  => (ETag -> LazyByteString.ByteString -> m ())
-  -> Response
-  -> m (Either Response (ETag, LazyByteString.ByteString))
-getIndexWithoutCache putCache response =
-  case fmap ETag . lookup Http.hETag $ Client.responseHeaders response of
-    Nothing -> pure $ Left response
-    Just etag -> do
-      let body = Client.responseBody response
-      putCache etag body
-      pure $ Right (etag, body)
-
-newtype ETag = ETag
-  { unwrapETag :: ByteString.ByteString
+newtype EntityTag = EntityTag
+  { unwrapEntityTag :: ByteString.ByteString
   } deriving (Eq, Show)
 
 decompress
@@ -184,7 +159,7 @@ output :: Either ParseError Cabal.GenericPackageDescription -> IO ()
 output result = case result of
   Left parseError -> case parseError of
     ParseErrorInvalidIndex (IndexErrorBadExtension _) -> pure ()
-    _ -> IO.hPrint IO.stderr parseError
+    _ -> print parseError
   Right package -> do
     let
       name =

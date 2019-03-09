@@ -14,10 +14,14 @@
   - default: false
   - { name: Codec.Archive.Tar, as: Tar }
   - { name: Codec.Compression.Zlib.Internal, as: Zlib }
+  - { name: Control.Concurrent, as: Concurrent }
+  - { name: Control.Concurrent.STM, as: Stm }
   - { name: Control.Exception, as: Exception }
+  - { name: Control.Monad, as: Monad }
   - { name: Control.Monad.Trans.Maybe, as: MaybeT }
   - { name: Data.ByteString, as: ByteString }
   - { name: Data.ByteString.Lazy, as: LazyByteString }
+  - { name: Data.Function, as: Function }
   - { name: Data.List, as: List }
   - { name: Data.Maybe, as: Maybe }
   - { name: Data.Text, as: Text }
