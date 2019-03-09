@@ -7,3 +7,7 @@ extra-deps:
   # https://github.com/lspitzner/brittany/pull/210
   - git: https://github.com/lspitzner/brittany
     commit: c4b696c4f654cc313d0abbb0647594b7deb3bd77
+
+  # https://github.com/haskell/zlib/pull/20
+  - git: https://github.com/tfausak/zlib
+    commit: 0cb98dad2e6dc45d481072138de4dfb48c1c48df

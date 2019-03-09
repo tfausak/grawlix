@@ -8,21 +8,39 @@
 
 - group: { name: generalise, enabled: true }
 
+- ignore: { name: Use section }
+
 - modules:
   - default: false
+  - { name: Codec.Archive.Tar, as: Tar }
+  - { name: Codec.Compression.Zlib.Internal, as: Zlib }
+  - { name: Control.Exception, as: Exception }
   - { name: Control.Monad.Trans.Maybe, as: MaybeT }
   - { name: Data.ByteString, as: ByteString }
+  - { name: Data.ByteString.Lazy, as: LazyByteString }
   - { name: Data.List, as: List }
   - { name: Data.Maybe, as: Maybe }
   - { name: Data.Text, as: Text }
   - { name: Data.Text.Encoding, as: Encoding }
   - { name: Data.Version, as: Version }
+  - { name: Distribution.PackageDescription.Parsec, as: Cabal }
+  - { name: Distribution.Parsec.Common, as: Cabal }
+  - { name: Distribution.Pretty, as: Cabal }
+  - { name: Distribution.Types.GenericPackageDescription, as: Cabal }
+  - { name: Distribution.Types.PackageDescription, as: Cabal }
+  - { name: Distribution.Types.PackageId, as: Cabal }
+  - { name: Distribution.Types.PackageName, as: Cabal }
   - { name: Grawlix }
   - { name: Grawlix.Main }
   - { name: Grawlix.Version }
   - { name: Language.Haskell.Brittany, as: Brittany }
   - { name: Language.Haskell.HLint3, as: Hlint }
+  - { name: Network.HTTP.Client, as: Client }
+  - { name: Network.HTTP.Client.TLS, as: Tls }
+  - { name: Network.HTTP.Types, as: Http }
+  - { name: Network.HTTP.Types.Header, as: Http }
   - { name: Paths_grawlix, as: Package }
   - { name: System.Directory, as: Directory }
   - { name: System.FilePath, as: FilePath }
+  - { name: System.IO, as: IO }
   - { name: Test.Hspec, as: Hspec }
