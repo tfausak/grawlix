@@ -7,6 +7,7 @@ where
 
 import qualified Control.Monad.Trans.Maybe as MaybeT
 import qualified Data.ByteString as ByteString
+import qualified Data.Either as Either
 import qualified Data.Function as Function
 import qualified Data.List as List
 import qualified Data.Maybe as Maybe
@@ -24,6 +25,46 @@ main :: IO ()
 main = Hspec.hspec $ do
 
   Hspec.describe "Grawlix" $ do
+
+    Hspec.describe "Config" $ do
+
+      Hspec.describe "getConfig" $ do
+
+        Hspec.it "returns the default config" $ do
+          Grawlix.getConfig "" []
+            `Hspec.shouldBe` Right (Grawlix.defaultConfig, [])
+
+        Hspec.it "errors with invalid options" $ do
+          Grawlix.getConfig "" ["--help=z"]
+            `Hspec.shouldBe` Left
+                               "ERROR: option `--help' doesn't allow an argument\n"
+
+        Hspec.it "warns about unknown options" $ do
+          fmap snd (Grawlix.getConfig "" ["-z"])
+            `Hspec.shouldBe` Right "WARNING: unknown option `-z'\n"
+
+        Hspec.it "warns about unexpected arguments" $ do
+          fmap snd (Grawlix.getConfig "" ["z"])
+            `Hspec.shouldBe` Right "WARNING: unexpected argument `z'\n"
+
+        Hspec.it "shows the help" $ do
+          Grawlix.getConfig "z" ["--help"] `Hspec.shouldSatisfy` Either.isLeft
+
+        Hspec.it "shows the version" $ do
+          Grawlix.getConfig "" ["--version"]
+            `Hspec.shouldSatisfy` Either.isLeft
+
+        Hspec.it "sets the database" $ do
+          fmap
+              (Grawlix.configDatabase . fst)
+              (Grawlix.getConfig "" ["--database=z"])
+            `Hspec.shouldBe` Right "z"
+
+        Hspec.it "prefers later options to earlier ones" $ do
+          fmap
+              (Grawlix.configDatabase . fst)
+              (Grawlix.getConfig "" ["--database=a", "--database=b"])
+            `Hspec.shouldBe` Right "b"
 
     Hspec.describe "Version" $ do
 

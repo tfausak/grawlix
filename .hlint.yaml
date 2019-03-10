@@ -4,6 +4,13 @@
 - flags:
   - default: false
 
+- functions:
+  - default: true
+  - within: []
+    name:
+      - error
+      - undefined
+
 - group: { name: dollar, enabled: true }
 
 - group: { name: generalise, enabled: true }
@@ -21,12 +28,15 @@
   - { name: Control.Monad.Trans.Maybe, as: MaybeT }
   - { name: Data.ByteString, as: ByteString }
   - { name: Data.ByteString.Lazy, as: LazyByteString }
+  - { name: Data.Either, as: Either }
   - { name: Data.Function, as: Function }
   - { name: Data.List, as: List }
   - { name: Data.Maybe, as: Maybe }
   - { name: Data.Text, as: Text }
   - { name: Data.Text.Encoding, as: Encoding }
   - { name: Data.Version, as: Version }
+  - { name: Database.SQLite.Simple, as: Sql }
+  - { name: Database.SQLite.Simple.ToField, as: Sql }
   - { name: Distribution.PackageDescription.Parsec, as: Cabal }
   - { name: Distribution.Parsec.Common, as: Cabal }
   - { name: Distribution.Pretty, as: Cabal }
@@ -35,6 +45,7 @@
   - { name: Distribution.Types.PackageId, as: Cabal }
   - { name: Distribution.Types.PackageName, as: Cabal }
   - { name: Grawlix }
+  - { name: Grawlix.Config }
   - { name: Grawlix.Main }
   - { name: Grawlix.Version }
   - { name: Language.Haskell.Brittany, as: Brittany }
@@ -44,7 +55,10 @@
   - { name: Network.HTTP.Types, as: Http }
   - { name: Network.HTTP.Types.Header, as: Http }
   - { name: Paths_grawlix, as: Package }
+  - { name: System.Console.GetOpt, as: Console }
   - { name: System.Directory, as: Directory }
+  - { name: System.Environment, as: Environment }
+  - { name: System.Exit, as: Exit }
   - { name: System.FilePath, as: FilePath }
   - { name: System.IO, as: IO }
   - { name: Test.Hspec, as: Hspec }

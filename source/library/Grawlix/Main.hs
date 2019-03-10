@@ -11,6 +11,9 @@ import qualified Control.Monad as Monad
 import qualified Data.ByteString as ByteString
 import qualified Data.ByteString.Lazy as LazyByteString
 import qualified Data.Maybe as Maybe
+import qualified Data.Text as Text
+import qualified Database.SQLite.Simple as Sql
+import qualified Database.SQLite.Simple.ToField as Sql
 import qualified Distribution.PackageDescription.Parsec as Cabal
 import qualified Distribution.Parsec.Common as Cabal
 import qualified Distribution.Pretty as Cabal
@@ -18,50 +21,77 @@ import qualified Distribution.Types.GenericPackageDescription as Cabal
 import qualified Distribution.Types.PackageDescription as Cabal
 import qualified Distribution.Types.PackageId as Cabal
 import qualified Distribution.Types.PackageName as Cabal
+import qualified Grawlix.Config as Config
 import qualified Network.HTTP.Client as Client
 import qualified Network.HTTP.Client.TLS as Tls
 import qualified Network.HTTP.Types as Http
 import qualified Network.HTTP.Types.Header as Http
+import qualified System.Environment as Environment
+import qualified System.Exit as Exit
 import qualified System.FilePath as FilePath
+import qualified System.IO as IO
 
 defaultMain :: IO ()
 defaultMain = do
   manager <- Tls.newTlsManager
   entityTagVar <- Stm.newTVarIO Nothing
-  Monad.forever $ do
-    putStrLn "Getting package index ..."
-    initialRequest <- Client.parseRequest
-      "https://hackage.haskell.org/01-index.tar.gz"
-    maybeEntityTag <- Stm.readTVarIO entityTagVar
-    let
-      request = case maybeEntityTag of
-        Nothing -> initialRequest
-        Just entityTag -> initialRequest
-          { Client.requestHeaders =
-            [(Http.hIfNoneMatch, unwrapEntityTag entityTag)]
-          }
-    response <- Client.httpLbs request manager
-    case Http.statusCode $ Client.responseStatus response of
-      304 -> putStrLn "Package index has not changed."
-      200 -> do
-        putStrLn "Processing new package index ..."
-        case
-            fmap EntityTag . lookup Http.hETag $ Client.responseHeaders
-              response
-          of
-            Nothing -> pure ()
-            Just entityTag ->
-              Stm.atomically . Stm.writeTVar entityTagVar $ Just entityTag
-        case decompress $ Client.responseBody response of
-          Left decompressError -> print decompressError
-          Right archive ->
-            mapM_ output
-              . fmap (parsePackage . toIndexEntry)
-              . Tar.foldEntries (prepend . Right) [] (singleton . Left)
-              $ Tar.read archive
-        putStrLn "Done processing package index."
-      _ -> print response
-    Concurrent.threadDelay $ 60 * 1000000
+  program <- Environment.getProgName
+  arguments <- Environment.getArgs
+  config <- case Config.getConfig program arguments of
+    Left errors -> do
+      IO.hPutStr IO.stderr errors
+      Exit.exitFailure
+    Right (config, warnings) -> do
+      IO.hPutStr IO.stderr warnings
+      pure config
+
+  Sql.withConnection (Config.configDatabase config) $ \connection ->
+    Monad.forever $ do
+      Sql.execute_ connection
+        $ query
+            " create table if not exists packages \
+            \ ( id integer primary key \
+            \ , name text not null \
+            \ , version text not null \
+            \ , revision integer not null \
+            \ , unique ( name, version, revision ) \
+            \ ) "
+      IO.hPutStrLn IO.stderr "Getting package index ..."
+      initialRequest <- Client.parseRequest
+        "https://hackage.haskell.org/01-index.tar.gz"
+      maybeEntityTag <- Stm.readTVarIO entityTagVar
+      let
+        request = case maybeEntityTag of
+          Nothing -> initialRequest
+          Just entityTag -> initialRequest
+            { Client.requestHeaders =
+              [(Http.hIfNoneMatch, unwrapEntityTag entityTag)]
+            }
+      response <- Client.httpLbs request manager
+      case Http.statusCode $ Client.responseStatus response of
+        304 -> IO.hPutStrLn IO.stderr "Package index has not changed."
+        200 -> do
+          IO.hPutStrLn IO.stderr "Processing new package index ..."
+          case
+              fmap EntityTag . lookup Http.hETag $ Client.responseHeaders
+                response
+            of
+              Nothing -> pure ()
+              Just entityTag ->
+                Stm.atomically . Stm.writeTVar entityTagVar $ Just entityTag
+          case decompress $ Client.responseBody response of
+            Left decompressError -> IO.hPrint IO.stderr decompressError
+            Right archive ->
+              mapM_ (processPackage connection)
+                . fmap (parsePackage . toIndexEntry)
+                . Tar.foldEntries (prepend . Right) [] (singleton . Left)
+                $ Tar.read archive
+          IO.hPutStrLn IO.stderr "Done processing package index."
+        _ -> IO.hPrint IO.stderr response
+      Concurrent.threadDelay $ 60 * 1000000
+
+query :: String -> Sql.Query
+query = Sql.Query . Text.pack
 
 newtype EntityTag = EntityTag
   { unwrapEntityTag :: ByteString.ByteString
@@ -155,11 +185,14 @@ parseGenericPackageDescription =
 mapLeft :: (a -> b) -> Either a c -> Either b c
 mapLeft f = either (Left . f) Right
 
-output :: Either ParseError Cabal.GenericPackageDescription -> IO ()
-output result = case result of
+processPackage
+  :: Sql.Connection
+  -> Either ParseError Cabal.GenericPackageDescription
+  -> IO ()
+processPackage connection result = case result of
   Left parseError -> case parseError of
     ParseErrorInvalidIndex (IndexErrorBadExtension _) -> pure ()
-    _ -> print parseError
+    _ -> IO.hPrint IO.stderr parseError
   Right package -> do
     let
       name =
@@ -177,4 +210,13 @@ output result = case result of
           . lookup "x-revision"
           . Cabal.customFieldsPD
           $ Cabal.packageDescription package
-    putStrLn $ name <> "\t" <> version <> "\t" <> revision
+    Sql.executeNamed
+      connection
+      (query
+        " insert or ignore into packages (name, version, revision) \
+        \ values (:name, :version, :revision) "
+      )
+      [param "name" name, param "version" version, param "revision" revision]
+
+param :: Sql.ToField v => String -> v -> Sql.NamedParam
+param k v = Text.pack (':' : k) Sql.:= v
