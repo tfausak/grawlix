@@ -49,7 +49,7 @@ defaultMain = do
     Monad.forever $ do
       Sql.execute_ connection
         $ query
-            " create table if not exists packages \
+            " create table if not exists identifiers \
             \ ( id integer primary key \
             \ , name text not null \
             \ , version text not null \
@@ -210,13 +210,30 @@ processPackage connection result = case result of
           . lookup "x-revision"
           . Cabal.customFieldsPD
           $ Cabal.packageDescription package
-    Sql.executeNamed
+    let
+      params =
+        [param "name" name, param "version" version, param "revision" revision]
+    results <- Sql.queryNamed
       connection
       (query
-        " insert or ignore into packages (name, version, revision) \
-        \ values (:name, :version, :revision) "
+        " select id from identifiers where \
+        \ name = :name and \
+        \ version = :version and \
+        \ revision = :revision"
       )
-      [param "name" name, param "version" version, param "revision" revision]
+      params
+    _ <- case results of
+      Sql.Only x : _ -> pure x
+      _ -> do
+        Sql.executeNamed
+          connection
+          (query
+            " insert into identifiers (name, version, revision) \
+            \ values (:name, :version, :revision) "
+          )
+          params
+        Sql.lastInsertRowId connection
+    pure ()
 
 param :: Sql.ToField v => String -> v -> Sql.NamedParam
 param k v = Text.pack (':' : k) Sql.:= v
