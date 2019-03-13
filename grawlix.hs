@@ -50,6 +50,7 @@ main = do
   packages <- convert descriptions
   logLn ["Converted packages."]
 
+  -- TODO: Get the exposed modules out of all the package library components.
   mapM_ (logLn . (: []) . render) packages
 
 logLn :: [String] -> IO ()
