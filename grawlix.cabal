@@ -1,0 +1,16 @@
+cabal-version: 2.4
+
+name: grawlix
+version: 1
+
+executable grawlix
+  build-depends:
+    base ^>= 4.12.0,
+  default-language: Haskell2010
+  ghc-options:
+    -rtsopts
+    -threaded
+    -Weverything
+    -Wno-implicit-prelude
+    -Wno-safe
+  main-is: grawlix.hs
